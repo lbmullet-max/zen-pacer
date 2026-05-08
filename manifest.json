@@ -2,7 +2,7 @@
   "name": "Zen Pacer",
   "short_name": "Zen Pacer",
   "display": "standalone",
-  "start_url": ".",
+  "start_url": "/",
   "background_color": "#1a271d",
   "theme_color": "#1a271d",
   "icons": [
