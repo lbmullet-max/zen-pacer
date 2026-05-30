@@ -8,8 +8,8 @@
     <meta name="mobile-web-app-capable" content="yes">
     <meta name="theme-color" content="#121c14" id="meta-theme">
     <title>Breathing is Beautiful</title>
-    <link rel="icon" type="image/png" href="../icon.png">
-    <link rel="apple-touch-icon" href="../icon.png">
+    <link rel="icon" type="image/png" href="icon.png">
+    <link rel="apple-touch-icon" href="icon.png">
     <link rel="manifest" href="manifest.json">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -138,9 +138,44 @@
             display: inline-flex;
             align-items: center;
             gap: 5px;
-            width: 100%;
-            justify-content: center;
             margin-bottom: 0;
+        }
+
+        /* ─── Session quick controls (pause visible mid-session) ─────── */
+        #session-quick-controls {
+            display: none;
+            gap: 8px;
+            width: 100%;
+            margin-bottom: 4px;
+        }
+        body.session-active #session-quick-controls {
+            display: flex;
+            align-items: center;
+        }
+        #session-top-row {
+            display: none;
+            gap: 8px;
+            width: 100%;
+            margin-bottom: 4px;
+            align-items: center;
+        }
+        body.session-active #session-top-row {
+            display: flex;
+        }
+        #quick-pause-btn {
+            flex: 1;
+            background: rgba(255,255,255,0.08);
+            color: var(--text-muted);
+            border: 1px solid rgba(255,255,255,0.12);
+            font-size: 0.85rem;
+            padding: 7px 14px;
+            border-radius: 20px;
+            font-weight: 400;
+        }
+        #quick-pause-btn.is-paused {
+            background: rgba(74,122,90,0.25);
+            color: var(--text-primary);
+            border-color: rgba(74,122,90,0.4);
         }
 
         /* The collapsible settings body */
@@ -257,6 +292,55 @@
             width: 100%;
             accent-color: #7ba98b;
             cursor: pointer;
+        }
+
+        /* ─── Haptic toggle switch ───────────────────────────────────── */
+        .toggle-row {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            width: 100%;
+        }
+        .toggle-label {
+            color: var(--text-muted);
+            font-size: 0.85rem;
+        }
+        .toggle-switch {
+            position: relative;
+            display: inline-block;
+            width: 42px;
+            height: 24px;
+            flex-shrink: 0;
+        }
+        .toggle-switch input { opacity: 0; width: 0; height: 0; position: absolute; }
+        .toggle-slider {
+            position: absolute;
+            cursor: pointer;
+            inset: 0;
+            background: rgba(255,255,255,0.1);
+            border-radius: 24px;
+            transition: background 0.25s;
+            border: 1px solid rgba(255,255,255,0.12);
+        }
+        .toggle-slider::before {
+            content: '';
+            position: absolute;
+            width: 18px;
+            height: 18px;
+            left: 2px;
+            top: 50%;
+            transform: translateY(-50%);
+            background: var(--text-muted);
+            border-radius: 50%;
+            transition: transform 0.25s, background 0.25s;
+        }
+        .toggle-switch input:checked + .toggle-slider {
+            background: rgba(74,122,90,0.55);
+            border-color: rgba(74,122,90,0.4);
+        }
+        .toggle-switch input:checked + .toggle-slider::before {
+            transform: translate(18px, -50%);
+            background: #7ba98b;
         }
 
         /* ─── Action buttons ─────────────────────────────────────────── */
@@ -470,8 +554,11 @@
             <button id="toggle-settings-btn" style="background:transparent;border:1px solid rgba(139,169,151,0.25);color:var(--text-muted);font-size:0.8rem;padding:5px 14px;border-radius:20px;font-weight:400;">Settings ↕</button>
         </div>
 
-        <!-- Mid-session mini reveal button -->
-        <button id="mini-reveal-btn">⚙ Adjust Settings</button>
+        <!-- Mid-session top row: settings reveal + pause -->
+        <div id="session-top-row">
+            <button id="mini-reveal-btn">⚙ Settings</button>
+            <button id="quick-pause-btn">⏸ Pause</button>
+        </div>
 
         <div id="settings-body">
             <div class="settings-section">
@@ -541,6 +628,15 @@
                         <label>Nature Vol</label>
                         <input type="range" id="ambient-vol-slider" min="0" max="1" step="0.01" value="0.35">
                     </div>
+                </div>
+
+                <!-- Haptic feedback toggle -->
+                <div class="toggle-row">
+                    <span class="toggle-label">Haptic feedback</span>
+                    <label class="toggle-switch" aria-label="Toggle haptic feedback">
+                        <input type="checkbox" id="haptic-toggle" checked>
+                        <span class="toggle-slider"></span>
+                    </label>
                 </div>
             </div>
 
@@ -668,6 +764,8 @@ let ambientFilter   = null;
 let windLfo         = null;
 let windLfoGain     = null;
 let wakeLock        = null;
+let keepAliveOsc    = null;   // silent oscillator to keep audio alive on lock screen
+let keepAliveGain   = null;
 
 /* ═══════════════════════════════════════════════════════════════
    DOM REFS
@@ -687,10 +785,12 @@ const ambientSelect   = document.getElementById('ambient-select');
 const minutesInput    = document.getElementById('minutes-input');
 const pacerVolSlider  = document.getElementById('pacer-vol-slider');
 const ambientVolSlider= document.getElementById('ambient-vol-slider');
+const hapticToggle    = document.getElementById('haptic-toggle');
 
 const startBtn        = document.getElementById('start-btn');
 const pauseBtn        = document.getElementById('pause-btn');
 const resetBtn        = document.getElementById('reset-btn');
+const quickPauseBtn   = document.getElementById('quick-pause-btn');
 const toggleSettingsBtn = document.getElementById('toggle-settings-btn');
 const miniRevealBtn   = document.getElementById('mini-reveal-btn');
 const settingsBody    = document.getElementById('settings-body');
@@ -727,6 +827,28 @@ toggleSettingsBtn.addEventListener('click', () => {
 });
 miniRevealBtn.addEventListener('click', () => {
     openSettings();
+});
+
+/* ═══════════════════════════════════════════════════════════════
+   QUICK PAUSE BUTTON (visible during session without settings)
+═══════════════════════════════════════════════════════════════ */
+function updateQuickPauseBtn() {
+    if (sessionState.isRunning) {
+        quickPauseBtn.textContent = '⏸ Pause';
+        quickPauseBtn.classList.remove('is-paused');
+    } else {
+        quickPauseBtn.textContent = '▶ Resume';
+        quickPauseBtn.classList.add('is-paused');
+    }
+}
+
+quickPauseBtn.addEventListener('click', () => {
+    if (sessionState.isRunning) {
+        pauseSession();
+    } else {
+        startSession();
+    }
+    updateQuickPauseBtn();
 });
 
 /* ═══════════════════════════════════════════════════════════════
@@ -805,6 +927,46 @@ function flushStats() {
         saveSessionStats(sessionState.pendingSeconds);
         sessionState.pendingSeconds = 0;
     }
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   AUDIO — keep-alive for Android lock screen
+═══════════════════════════════════════════════════════════════ */
+function startKeepAlive() {
+    if (keepAliveOsc || !audioCtx) return;
+    keepAliveOsc  = audioCtx.createOscillator();
+    keepAliveGain = audioCtx.createGain();
+    keepAliveGain.gain.value = 0.0001; // essentially silent but keeps context alive
+    keepAliveOsc.frequency.value = 1;  // 1 Hz, completely inaudible
+    keepAliveOsc.connect(keepAliveGain);
+    keepAliveGain.connect(audioCtx.destination);
+    keepAliveOsc.start();
+}
+
+function stopKeepAlive() {
+    if (keepAliveOsc) {
+        try { keepAliveOsc.stop(); } catch(e) {}
+        keepAliveOsc.disconnect();
+        keepAliveOsc  = null;
+        keepAliveGain = null;
+    }
+}
+
+function setupMediaSession() {
+    if (!('mediaSession' in navigator)) return;
+    navigator.mediaSession.metadata = new MediaMetadata({
+        title: 'Breathing is Beautiful',
+        artist: 'Breathing Session',
+        album: 'Zen Pacer',
+    });
+    navigator.mediaSession.setActionHandler('play',  () => { startSession(); updateQuickPauseBtn(); });
+    navigator.mediaSession.setActionHandler('pause', () => { pauseSession(); updateQuickPauseBtn(); });
+    navigator.mediaSession.playbackState = 'playing';
+}
+
+function updateMediaSession(state) {
+    if (!('mediaSession' in navigator)) return;
+    navigator.mediaSession.playbackState = state; // 'playing' | 'paused'
 }
 
 /* ═══════════════════════════════════════════════════════════════
@@ -982,7 +1144,7 @@ function formatTime(sec) {
 }
 
 function haptic() {
-    if ('vibrate' in navigator) navigator.vibrate(HAPTIC_MS);
+    if (hapticToggle.checked && 'vibrate' in navigator) navigator.vibrate(HAPTIC_MS);
 }
 
 /* ═══════════════════════════════════════════════════════════════
@@ -1004,6 +1166,8 @@ function loop(timestamp) {
             cancelAnimationFrame(sessionState.animationFrameId);
             flushStats();
             releaseWakeLock();
+            stopKeepAlive();
+            updateMediaSession('none');
             triggerAudio('inhale', 3, 523.25);
             setCircleScale(1);
             arcProgress.style.strokeDashoffset = ARC_CIRCUMFERENCE;
@@ -1126,7 +1290,7 @@ function showCompleteOverlay() {
         });
 
         setUiState('idle');
-        body.classList.remove('session-active');
+        document.body.classList.remove('session-active');
 
     }, COMPLETION_HOLD_SEC * 1000);
 }
@@ -1140,8 +1304,6 @@ completeBtn.addEventListener('click', () => {
 /* ═══════════════════════════════════════════════════════════════
    UI STATE HELPERS
 ═══════════════════════════════════════════════════════════════ */
-const body = document.body;
-
 function setUiState(state) {
     // state: 'idle' | 'running' | 'paused'
     if (state === 'running') {
@@ -1170,14 +1332,17 @@ function startSession() {
     initAudio();
     requestWakeLock();
     playAmbient();
+    setupMediaSession();
+    startKeepAlive();
 
     sessionState.isRunning = true;
     sessionState.lastFrameTime = 0;
     setUiState('running');
 
-    // Collapse settings, show mini-reveal
+    // Collapse settings, show session top row
     closeSettings();
-    body.classList.add('session-active');
+    document.body.classList.add('session-active');
+    updateQuickPauseBtn();
 
     // Unlock audio context (iOS)
     const unlock = audioCtx.createOscillator();
@@ -1191,6 +1356,7 @@ function startSession() {
     }
 
     pacerSwellGain.gain.setTargetAtTime(1, audioCtx.currentTime, 0.05);
+    updateMediaSession('playing');
     sessionState.animationFrameId = requestAnimationFrame(loop);
 }
 
@@ -1203,6 +1369,9 @@ function pauseSession() {
     instructionEl.textContent  = 'Paused';
     phaseCountdown.textContent = '';
     if (pacerSwellGain) pacerSwellGain.gain.setTargetAtTime(0, audioCtx.currentTime, 0.1);
+    updateMediaSession('paused');
+    updateQuickPauseBtn();
+    // Keep keepAlive running so audio context stays warm for resume
 }
 
 function resetSession() {
@@ -1217,9 +1386,11 @@ function resetSession() {
     cancelAnimationFrame(sessionState.animationFrameId);
     flushStats();
     releaseWakeLock();
+    stopKeepAlive();
+    updateMediaSession('none');
     setUiState('idle');
 
-    body.classList.remove('session-active');
+    document.body.classList.remove('session-active');
     openSettings();
 
     setCircleScale(1);
@@ -1234,8 +1405,8 @@ function resetSession() {
     if (pacerSwellGain) pacerSwellGain.gain.setTargetAtTime(0, audioCtx.currentTime, 0.1);
 }
 
-startBtn.addEventListener('click', startSession);
-pauseBtn.addEventListener('click', pauseSession);
+startBtn.addEventListener('click', () => { startSession(); updateQuickPauseBtn(); });
+pauseBtn.addEventListener('click', () => { pauseSession(); updateQuickPauseBtn(); });
 resetBtn.addEventListener('click', resetSession);
 
 /* ═══════════════════════════════════════════════════════════════
@@ -1285,16 +1456,28 @@ minutesInput.addEventListener('change', e => {
 });
 
 /* ═══════════════════════════════════════════════════════════════
-   PAGE LIFECYCLE
+   PAGE LIFECYCLE — resume audio on visibility change (Android)
 ═══════════════════════════════════════════════════════════════ */
 document.addEventListener('visibilitychange', () => {
     if (document.visibilityState === 'hidden') {
         flushStats();
-    } else if (document.visibilityState === 'visible' && sessionState.isRunning) {
-        requestWakeLock();
+    } else if (document.visibilityState === 'visible') {
+        // Resume audio context if Android suspended it
+        if (audioCtx && audioCtx.state === 'suspended') audioCtx.resume();
+        if (sessionState.isRunning) {
+            requestWakeLock();
+            updateMediaSession('playing');
+        }
     }
 });
 window.addEventListener('pagehide', flushStats);
+
+// Re-acquire wake lock if it gets released (e.g. tab switch on mobile)
+document.addEventListener('visibilitychange', async () => {
+    if (wakeLock !== null && document.visibilityState === 'visible' && sessionState.isRunning) {
+        try { wakeLock = await navigator.wakeLock.request('screen'); } catch(e) {}
+    }
+});
 
 /* ═══════════════════════════════════════════════════════════════
    INIT
