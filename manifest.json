@@ -1,13 +1,13 @@
 {
-  "name": "Zen Pacer",
-  "short_name": "Zen Pacer",
+  "name": "Breathing is Beautiful",
+  "short_name": "Breathing",
   "display": "standalone",
   "start_url": "/",
-  "background_color": "#1a271d",
-  "theme_color": "#1a271d",
+  "background_color": "#0e1710",
+  "theme_color": "#0e1710",
   "icons": [
     {
-      "src": "icon.png",
+      "src": "../icon.png",
       "sizes": "192x192 512x512",
       "type": "image/png",
       "purpose": "any maskable"
