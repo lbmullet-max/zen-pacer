@@ -531,6 +531,70 @@
             border-radius: 50px;
             background: #4a7a5a;
         }
+
+        /* ─── Sheet drag handle (hidden on desktop) ─────────────────── */
+        #sheet-handle {
+            display: none;
+            width: 40px;
+            height: 4px;
+            background: rgba(255,255,255,0.22);
+            border-radius: 2px;
+            margin: 0 auto 10px;
+            flex-shrink: 0;
+        }
+
+        /* ─── Audio tip banner (mobile only) ────────────────────────── */
+        #audio-tip {
+            display: none;
+            font-size: 0.75rem;
+            color: var(--text-muted);
+            text-align: center;
+            padding: 8px 12px;
+            background: rgba(255,255,255,0.03);
+            border-radius: 8px;
+            margin-top: 10px;
+            border: 1px solid rgba(255,255,255,0.06);
+            line-height: 1.4;
+        }
+
+        /* ─── Safe-area top: nothing clips under Android status bar ─── */
+        body {
+            padding-top: env(safe-area-inset-top, 0px);
+        }
+
+        /* ─── Mobile bottom-sheet layout ─────────────────────────────── */
+        @media (max-width: 640px) {
+            #sheet-handle { display: block; }
+            #audio-tip    { display: block; }
+
+            /* Lift panel out of normal flow so it can't push the circle off-screen */
+            #control-panel {
+                position: fixed;
+                bottom: 0;
+                left: 0;
+                right: 0;
+                max-width: 100%;
+                border-radius: 20px 20px 0 0;
+                margin-bottom: 0;
+                padding-bottom: calc(env(safe-area-inset-bottom, 0px) + 16px);
+                z-index: 50;
+            }
+
+            /* Give the circle area clearance above the fixed panel */
+            #app {
+                max-width: 100%;
+                min-height: 100vh;
+                padding-bottom: 180px;
+                justify-content: center;
+            }
+
+            /* Settings body scrolls internally, never grows the viewport */
+            #settings-body {
+                max-height: 55vh;
+                overflow-y: auto;
+                -webkit-overflow-scrolling: touch;
+            }
+        }
     </style>
 </head>
 <body>
@@ -547,8 +611,9 @@
 
 <div id="app">
 
-    <!-- Control panel -->
+    <!-- Control panel / mobile bottom sheet -->
     <div id="control-panel">
+        <div id="sheet-handle" aria-hidden="true"></div>
         <div id="panel-header">
             <span id="panel-title">🌿 Breathing is Beautiful</span>
             <button id="toggle-settings-btn" style="background:transparent;border:1px solid rgba(139,169,151,0.25);color:var(--text-muted);font-size:0.8rem;padding:5px 14px;border-radius:20px;font-weight:400;">Settings ↕</button>
@@ -645,6 +710,8 @@
                 <button id="pause-btn" disabled>Pause</button>
                 <button id="reset-btn">Reset</button>
             </div>
+
+            <div id="audio-tip">💡 Keep screen on during sessions for continuous audio</div>
         </div>
 
         <div id="timer-display">16:00</div>
@@ -984,7 +1051,8 @@ function initAudio() {
         pacerVolGain.connect(audioCtx.destination);
         ambientVolGain.connect(audioCtx.destination);
     }
-    if (audioCtx.state === 'suspended') audioCtx.resume();
+    // Android Chrome suspends the context on screen-lock; always attempt resume
+    if (audioCtx.state === 'suspended') audioCtx.resume().catch(() => {});
 }
 
 function playAmbient() {
@@ -1456,28 +1524,38 @@ minutesInput.addEventListener('change', e => {
 });
 
 /* ═══════════════════════════════════════════════════════════════
-   PAGE LIFECYCLE — resume audio on visibility change (Android)
+   PAGE LIFECYCLE — audio resume + wake lock on Android
 ═══════════════════════════════════════════════════════════════ */
+
+function restoreAudioAndLock() {
+    // Resume the AudioContext — Android Chrome suspends it on screen-lock
+    if (audioCtx && audioCtx.state === 'suspended') {
+        audioCtx.resume().catch(() => {});
+    }
+    if (sessionState.isRunning) {
+        // Wake lock is released automatically when the page hides; re-request it
+        requestWakeLock();
+        updateMediaSession('playing');
+        // Restart ambient buffer source — it stops when the context was suspended
+        if (ambientSelect.value !== 'none') playAmbient();
+    }
+}
+
 document.addEventListener('visibilitychange', () => {
     if (document.visibilityState === 'hidden') {
         flushStats();
     } else if (document.visibilityState === 'visible') {
-        // Resume audio context if Android suspended it
-        if (audioCtx && audioCtx.state === 'suspended') audioCtx.resume();
-        if (sessionState.isRunning) {
-            requestWakeLock();
-            updateMediaSession('playing');
-        }
+        restoreAudioAndLock();
     }
 });
-window.addEventListener('pagehide', flushStats);
 
-// Re-acquire wake lock if it gets released (e.g. tab switch on mobile)
-document.addEventListener('visibilitychange', async () => {
-    if (wakeLock !== null && document.visibilityState === 'visible' && sessionState.isRunning) {
-        try { wakeLock = await navigator.wakeLock.request('screen'); } catch(e) {}
-    }
+// pageshow fires on bfcache restore — another path where Android Chrome
+// can leave the AudioContext suspended
+window.addEventListener('pageshow', (e) => {
+    if (e.persisted) restoreAudioAndLock();
 });
+
+window.addEventListener('pagehide', flushStats);
 
 /* ═══════════════════════════════════════════════════════════════
    INIT
