@@ -131,7 +131,14 @@
             margin-bottom: 2px;
             transition: opacity 0.6s ease;
         }
-        body.session-active #app-title { opacity: 0.3; }
+        body.session-active #app-title {
+            opacity: 0;
+            pointer-events: none;
+            margin-bottom: 0;
+            max-height: 0;
+            overflow: hidden;
+            transition: opacity 0.6s ease, max-height 0.4s ease, margin-bottom 0.4s ease;
+        }
         #app-title em {
             font-style: italic;
             color: var(--phase-color);
@@ -373,6 +380,9 @@
             margin-top: 12px;
             padding-top: 12px;
             border-top: 1px solid rgba(255,255,255,0.07);
+        }
+        body.session-active .btn-row {
+            display: none;
         }
         button {
             padding: 10px 22px;
