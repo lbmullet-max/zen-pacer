@@ -22,6 +22,7 @@
         :root {
             --bg-dark: #0e1710;
             --bg-mid:  #121c14;
+            --bg-radial: #1b2e1e;
             --text-primary: #dce8df;
             --text-muted: #7a9882;
             --glass-bg: rgba(255,255,255,0.03);
@@ -35,7 +36,7 @@
             --phase-glow:  hsla(var(--phase-hue), var(--phase-sat), var(--phase-light), 0.35);
 
             --circle-scale: 1;
-            --ring-progress: 0; /* 0→1 fraction of arc remaining */
+            --ring-progress: 0;
         }
 
         html, body {
@@ -51,7 +52,8 @@
             min-height: 100vh;
             color: var(--text-primary);
             font-family: 'DM Sans', system-ui, sans-serif;
-            background: radial-gradient(ellipse at 50% 40%, #1b2e1e 0%, var(--bg-dark) 70%);
+            background: radial-gradient(ellipse at 50% 40%, var(--bg-radial) 0%, var(--bg-dark) 70%);
+            transition: background 1.8s ease;
             overflow-y: auto;
             overscroll-behavior-y: none;
             position: relative;
@@ -112,10 +114,29 @@
 
         #panel-title {
             font-family: 'DM Serif Display', serif;
-            font-size: 1.1rem;
+            font-size: 1rem;
             color: var(--text-primary);
-            opacity: 0.9;
-            letter-spacing: 0.3px;
+            opacity: 0.85;
+            letter-spacing: 0.5px;
+            line-height: 1.25;
+        }
+
+        #app-title {
+            font-family: 'DM Serif Display', serif;
+            font-size: 0.88rem;
+            color: var(--text-primary);
+            opacity: 0.5;
+            letter-spacing: 0.5px;
+            text-align: center;
+            margin-bottom: 2px;
+            transition: opacity 0.6s ease;
+        }
+        body.session-active #app-title { opacity: 0.3; }
+        #app-title em {
+            font-style: italic;
+            color: var(--phase-color);
+            opacity: 1;
+            transition: color 1.2s ease;
         }
 
         /* Collapsed state: only show mini-open button */
@@ -349,7 +370,9 @@
             gap: 10px;
             width: 100%;
             justify-content: center;
-            margin-top: 18px;
+            margin-top: 12px;
+            padding-top: 12px;
+            border-top: 1px solid rgba(255,255,255,0.07);
         }
         button {
             padding: 10px 22px;
@@ -474,6 +497,40 @@
         }
         .circle.hold-pulse {
             animation: holdPulse 2s ease-in-out infinite;
+        }
+
+        /* ─── Contemplative quote ────────────────────────────────────── */
+        #quote-box {
+            max-width: 330px;
+            text-align: center;
+            margin-top: 28px;
+            padding: 0 12px;
+            opacity: 1;
+            transition: opacity 1.4s ease;
+        }
+        body.session-active #quote-box {
+            opacity: 0;
+            pointer-events: none;
+        }
+        #quote-text, #complete-quote-text {
+            font-family: 'DM Serif Display', serif;
+            font-style: italic;
+            font-size: 1.02rem;
+            line-height: 1.7;
+            color: var(--text-primary);
+            opacity: 0.82;
+            letter-spacing: 0.2px;
+        }
+        #quote-author, #complete-quote-author {
+            margin-top: 10px;
+            font-size: 0.72rem;
+            letter-spacing: 2px;
+            text-transform: uppercase;
+            color: var(--text-muted);
+        }
+        #complete-quote {
+            max-width: 320px;
+            margin: 0 auto;
         }
 
         /* ─── Session Complete overlay ──────────────────────────────── */
@@ -604,7 +661,10 @@
 <!-- Session complete overlay -->
 <div id="complete-overlay" role="dialog" aria-modal="true" aria-labelledby="complete-title">
     <div id="complete-title">Well done.</div>
-    <div id="complete-subtitle">Take a moment to feel the stillness you've created.</div>
+    <div id="complete-quote">
+        <div id="complete-quote-text"></div>
+        <div id="complete-quote-author"></div>
+    </div>
     <div id="complete-stats"></div>
     <button id="complete-btn">Begin Again</button>
 </div>
@@ -615,7 +675,6 @@
     <div id="control-panel">
         <div id="sheet-handle" aria-hidden="true"></div>
         <div id="panel-header">
-            <span id="panel-title">🌿 Breathing is Beautiful</span>
             <button id="toggle-settings-btn" style="background:transparent;border:1px solid rgba(139,169,151,0.25);color:var(--text-muted);font-size:0.8rem;padding:5px 14px;border-radius:20px;font-weight:400;">Settings ↕</button>
         </div>
 
@@ -695,28 +754,23 @@
                     </div>
                 </div>
 
-                <!-- Haptic feedback toggle -->
-                <div class="toggle-row">
-                    <span class="toggle-label">Haptic feedback</span>
-                    <label class="toggle-switch" aria-label="Toggle haptic feedback">
-                        <input type="checkbox" id="haptic-toggle" checked>
-                        <span class="toggle-slider"></span>
-                    </label>
-                </div>
             </div>
 
-            <div class="btn-row">
-                <button id="start-btn">Start</button>
-                <button id="pause-btn" disabled>Pause</button>
-                <button id="reset-btn">Reset</button>
-            </div>
-
-            <div id="audio-tip">💡 Keep screen on during sessions for continuous audio</div>
         </div>
+
+        <div class="btn-row">
+            <button id="start-btn">Start</button>
+            <button id="pause-btn" disabled>Pause</button>
+            <button id="reset-btn">Reset</button>
+        </div>
+
+        <div id="audio-tip">💡 Keep screen on during sessions for continuous audio</div>
 
         <div id="timer-display">16:00</div>
         <div id="stats-display">Streak: 0 Days · Total: 0 Mins</div>
     </div><!-- /control-panel -->
+
+    <div id="app-title">Breathing is <em>Beautiful</em></div>
 
     <!-- Instruction text (aria-live for screen readers) -->
     <div id="instruction" aria-live="polite" aria-atomic="true">Ready to breathe</div>
@@ -729,6 +783,12 @@
             <circle id="arc-progress" cx="130" cy="130" r="122"/>
         </svg>
         <div class="circle" id="circle"></div>
+    </div>
+
+    <!-- Contemplative quote (visible when not in session) -->
+    <div id="quote-box">
+        <div id="quote-text"></div>
+        <div id="quote-author"></div>
     </div>
 
 </div><!-- /app -->
@@ -744,16 +804,80 @@ const CIRCLE_HOLD_OUT_SCALE = 1.0;   // scale after exhale hold
 const EASE_POWER          = 2;
 const ARC_RADIUS          = 122;
 const ARC_CIRCUMFERENCE   = 2 * Math.PI * ARC_RADIUS;
-const HAPTIC_MS           = 50;
 const COMPLETION_HOLD_SEC = 3;       // stillness before overlay
 const STATS_KEY           = 'breathBeautifulStats_v2';
 
-/* Phase colour palettes: [hue, sat%, light%] */
-const PHASE_COLORS = {
-    inhale: { hue: 38,  sat: '65%', light: '60%' },   // warm amber/gold
-    hold:   { hue: 200, sat: '30%', light: '62%' },   // neutral blue-grey
-    exhale: { hue: 172, sat: '45%', light: '52%' },   // cool teal
+/* Phase colour palettes: [hue, sat%, light%] — overridden per pattern theme */
+let PHASE_COLORS = {
+    inhale: { hue: 38,  sat: '65%', light: '60%' },
+    hold:   { hue: 200, sat: '30%', light: '62%' },
+    exhale: { hue: 172, sat: '45%', light: '52%' },
 };
+
+/* Per-pattern themes: background palette + phase colors */
+const PATTERN_THEMES = {
+    '4-6': {
+        // Forest sage — earthy, parasympathetic calm
+        bgDark: '#0e1710', bgMid: '#121c14', bgRadial: '#1b2e1e',
+        textPrimary: '#dce8df', textMuted: '#7a9882',
+        phases: {
+            inhale: { hue: 38,  sat: '65%', light: '60%' },
+            hold:   { hue: 200, sat: '30%', light: '62%' },
+            exhale: { hue: 155, sat: '42%', light: '52%' },
+        }
+    },
+    '5-5': {
+        // Ocean blue — coherent, focused clarity
+        bgDark: '#0b1520', bgMid: '#0f1c2c', bgRadial: '#142438',
+        textPrimary: '#d8e8f0', textMuted: '#6a92aa',
+        phases: {
+            inhale: { hue: 205, sat: '60%', light: '65%' },
+            hold:   { hue: 215, sat: '25%', light: '58%' },
+            exhale: { hue: 190, sat: '50%', light: '55%' },
+        }
+    },
+    'box': {
+        // Deep indigo — structured, disciplined stillness
+        bgDark: '#100d1e', bgMid: '#15112a', bgRadial: '#1e1638',
+        textPrimary: '#e0daf0', textMuted: '#8878b8',
+        phases: {
+            inhale: { hue: 255, sat: '55%', light: '70%' },
+            hold:   { hue: 240, sat: '28%', light: '60%' },
+            exhale: { hue: 275, sat: '42%', light: '60%' },
+        }
+    },
+    '4-7-8': {
+        // Midnight — deep rest, pre-sleep quiet
+        bgDark: '#080c18', bgMid: '#0c1020', bgRadial: '#101628',
+        textPrimary: '#d4d8e8', textMuted: '#5a6480',
+        phases: {
+            inhale: { hue: 220, sat: '45%', light: '65%' },
+            hold:   { hue: 230, sat: '20%', light: '52%' },
+            exhale: { hue: 210, sat: '38%', light: '50%' },
+        }
+    },
+    '4-2-4-2': {
+        // Warm amber — balanced, morning energy
+        bgDark: '#1a1208', bgMid: '#1e1810', bgRadial: '#2c2010',
+        textPrimary: '#ece0cc', textMuted: '#9c8060',
+        phases: {
+            inhale: { hue: 38,  sat: '72%', light: '64%' },
+            hold:   { hue: 28,  sat: '42%', light: '58%' },
+            exhale: { hue: 50,  sat: '55%', light: '56%' },
+        }
+    },
+};
+
+function applyPatternTheme(key) {
+    const theme = PATTERN_THEMES[key] || PATTERN_THEMES['4-6'];
+    const root  = document.documentElement;
+    root.style.setProperty('--bg-dark',      theme.bgDark);
+    root.style.setProperty('--bg-mid',       theme.bgMid);
+    root.style.setProperty('--bg-radial',    theme.bgRadial);
+    root.style.setProperty('--text-primary', theme.textPrimary);
+    root.style.setProperty('--text-muted',   theme.textMuted);
+    PHASE_COLORS = theme.phases;
+}
 
 /* ═══════════════════════════════════════════════════════════════
    PATTERN LIBRARY
@@ -802,6 +926,65 @@ const PATTERNS = {
 };
 
 /* ═══════════════════════════════════════════════════════════════
+   QUOTES — contemplative & mindful, drawn from a shuffled deck
+   so nothing repeats until every quote has been seen.
+═══════════════════════════════════════════════════════════════ */
+const QUOTES = [
+    { t: 'Breathing in, I calm body and mind. Breathing out, I smile.', a: 'Thich Nhat Hanh' },
+    { t: 'The breath is the bridge which connects life to consciousness.', a: 'Thich Nhat Hanh' },
+    { t: 'Smile, breathe and go slowly.', a: 'Thich Nhat Hanh' },
+    { t: 'Feelings come and go like clouds in a windy sky. Conscious breathing is my anchor.', a: 'Thich Nhat Hanh' },
+    { t: 'Walk as if you are kissing the Earth with your feet.', a: 'Thich Nhat Hanh' },
+    { t: 'Be still, and know that I am God.', a: 'Psalm 46:10' },
+    { t: 'He leads me beside still waters; he restores my soul.', a: 'Psalm 23' },
+    { t: 'Peace I leave with you; my peace I give to you.', a: 'John 14:27' },
+    { t: 'Come to me, all you who are weary, and I will give you rest.', a: 'Matthew 11:28' },
+    { t: 'Sitting quietly, doing nothing, spring comes, and the grass grows by itself.', a: 'Zen proverb' },
+    { t: 'Nature does not hurry, yet everything is accomplished.', a: 'Lao Tzu' },
+    { t: 'When you realize nothing is lacking, the whole world belongs to you.', a: 'Lao Tzu' },
+    { t: 'In the beginner’s mind there are many possibilities; in the expert’s mind there are few.', a: 'Shunryu Suzuki' },
+    { t: 'You are the sky. Everything else is just the weather.', a: 'Pema Chödrön' },
+    { t: 'Tension is who you think you should be. Relaxation is who you are.', a: 'Chinese proverb' },
+    { t: 'Nothing in all creation is so like God as stillness.', a: 'Meister Eckhart' },
+    { t: 'Let nothing disturb you. All things are passing; God never changes.', a: 'Teresa of Ávila' },
+    { t: 'Above all, trust in the slow work of God.', a: 'Pierre Teilhard de Chardin' },
+    { t: 'Happiness is not a matter of intensity but of balance, order, rhythm and harmony.', a: 'Thomas Merton' },
+    { t: 'Sometimes the most important thing in a whole day is the rest we take between two deep breaths.', a: 'Etty Hillesum' },
+    { t: 'Attention is the beginning of devotion.', a: 'Mary Oliver' },
+    { t: 'I come into the peace of wild things who do not tax their lives with forethought of grief.', a: 'Wendell Berry' },
+    { t: 'Deep within us all there is an amazing inner sanctuary of the soul.', a: 'Thomas Kelly' },
+    { t: 'Within you there is a stillness and a sanctuary to which you can retreat at any time.', a: 'Hermann Hesse' },
+    { t: 'You can’t stop the waves, but you can learn to surf.', a: 'Jon Kabat-Zinn' },
+    { t: 'Silence is God’s first language; everything else is a poor translation.', a: 'Thomas Keating' },
+    { t: 'The quieter you become, the more you are able to hear.', a: 'Ram Dass' },
+    { t: 'Realize deeply that the present moment is all you ever have.', a: 'Eckhart Tolle' },
+    { t: 'The temple bell stops — but the sound keeps coming out of the flowers.', a: 'Matsuo Bashō' },
+    { t: 'Let yourself be silently drawn by the strange pull of what you really love.', a: 'Rumi' },
+    { t: 'Almost everything will work again if you unplug it for a few minutes — including you.', a: 'Anne Lamott' },
+    { t: 'Mindfulness isn’t difficult. We just need to remember to do it.', a: 'Sharon Salzberg' },
+];
+
+const QUOTE_DECK_KEY = 'breathQuoteDeck_v1';
+
+function drawQuote() {
+    let deck = null;
+    try { deck = JSON.parse(localStorage.getItem(QUOTE_DECK_KEY)); } catch (e) {}
+    if (!deck || !Array.isArray(deck.order) ||
+        deck.order.length !== QUOTES.length || deck.idx >= QUOTES.length) {
+        const order = QUOTES.map((_, i) => i);
+        for (let i = order.length - 1; i > 0; i--) {
+            const j = Math.floor(Math.random() * (i + 1));
+            [order[i], order[j]] = [order[j], order[i]];
+        }
+        deck = { order, idx: 0 };
+    }
+    const q = QUOTES[deck.order[deck.idx]];
+    deck.idx++;
+    try { localStorage.setItem(QUOTE_DECK_KEY, JSON.stringify(deck)); } catch (e) {}
+    return q;
+}
+
+/* ═══════════════════════════════════════════════════════════════
    SESSION STATE
 ═══════════════════════════════════════════════════════════════ */
 const sessionState = {
@@ -830,6 +1013,9 @@ let ambientNode     = null;
 let ambientFilter   = null;
 let windLfo         = null;
 let windLfoGain     = null;
+let reverbNode      = null;   // shared generated-hall reverb (wet bus)
+let reverbSend      = null;
+let ambientExtras   = [];     // extra layers/LFOs per ambient scene
 let wakeLock        = null;
 let keepAliveOsc    = null;   // silent oscillator to keep audio alive on lock screen
 let keepAliveGain   = null;
@@ -852,7 +1038,6 @@ const ambientSelect   = document.getElementById('ambient-select');
 const minutesInput    = document.getElementById('minutes-input');
 const pacerVolSlider  = document.getElementById('pacer-vol-slider');
 const ambientVolSlider= document.getElementById('ambient-vol-slider');
-const hapticToggle    = document.getElementById('haptic-toggle');
 
 const startBtn        = document.getElementById('start-btn');
 const pauseBtn        = document.getElementById('pause-btn');
@@ -870,6 +1055,22 @@ const cH2             = document.getElementById('c-h2');
 const completeOverlay = document.getElementById('complete-overlay');
 const completeStats   = document.getElementById('complete-stats');
 const completeBtn     = document.getElementById('complete-btn');
+
+const quoteText           = document.getElementById('quote-text');
+const quoteAuthor         = document.getElementById('quote-author');
+const completeQuoteText   = document.getElementById('complete-quote-text');
+const completeQuoteAuthor = document.getElementById('complete-quote-author');
+
+function showIdleQuote() {
+    const q = drawQuote();
+    const quoteBox = document.getElementById('quote-box');
+    quoteBox.style.opacity = '0';
+    setTimeout(() => {
+        quoteText.textContent   = `”${q.t}”`;
+        quoteAuthor.textContent = q.a;
+        quoteBox.style.opacity  = '1';
+    }, 600);
+}
 
 /* Arc init */
 arcProgress.style.strokeDasharray  = ARC_CIRCUMFERENCE;
@@ -1039,6 +1240,38 @@ function updateMediaSession(state) {
 /* ═══════════════════════════════════════════════════════════════
    AUDIO
 ═══════════════════════════════════════════════════════════════ */
+/* Generated stereo impulse response — exponentially decaying noise.
+   Gives every tone a soft, natural room around it. */
+function buildImpulse(duration, decay) {
+    const rate = audioCtx.sampleRate;
+    const len  = Math.floor(rate * duration);
+    const buf  = audioCtx.createBuffer(2, len, rate);
+    for (let ch = 0; ch < 2; ch++) {
+        const d = buf.getChannelData(ch);
+        for (let i = 0; i < len; i++) {
+            d[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / len, decay);
+        }
+    }
+    return buf;
+}
+
+/* A "voice" = two gently detuned oscillators (chorus-like warmth).
+   Returns the oscillators so callers can attach vibrato LFOs. */
+function makeVoice(freq, dest, when, stopAt, type = 'sine', detune = 4) {
+    const oscs = [];
+    [-detune, detune].forEach(cents => {
+        const o = audioCtx.createOscillator();
+        o.type = type;
+        o.frequency.value = freq;
+        o.detune.value = cents;
+        o.connect(dest);
+        o.start(when);
+        o.stop(stopAt);
+        oscs.push(o);
+    });
+    return oscs;
+}
+
 function initAudio() {
     if (!audioCtx) {
         audioCtx       = new (window.AudioContext || window.webkitAudioContext)();
@@ -1050,21 +1283,33 @@ function initAudio() {
         pacerSwellGain.connect(pacerVolGain);
         pacerVolGain.connect(audioCtx.destination);
         ambientVolGain.connect(audioCtx.destination);
+
+        // Reverb wet bus: pacer voices send into a generated hall,
+        // blended back in under the pacer volume control.
+        reverbNode = audioCtx.createConvolver();
+        reverbNode.buffer = buildImpulse(3.2, 2.4);
+        reverbSend = audioCtx.createGain();
+        reverbSend.gain.value = 0.5;
+        pacerSwellGain.connect(reverbNode);
+        reverbNode.connect(reverbSend);
+        reverbSend.connect(pacerVolGain);
     }
     // Android Chrome suspends the context on screen-lock; always attempt resume
     if (audioCtx.state === 'suspended') audioCtx.resume().catch(() => {});
 }
 
 function playAmbient() {
-    [ambientNode, ambientFilter, windLfo, windLfoGain].forEach(n => {
-        if (n) { try { n.stop(); } catch(e){} n.disconnect(); }
+    [ambientNode, ambientFilter, windLfo, windLfoGain, ...ambientExtras].forEach(n => {
+        if (n) { try { n.stop(); } catch(e){} try { n.disconnect(); } catch(e){} }
     });
     ambientNode = ambientFilter = windLfo = windLfoGain = null;
+    ambientExtras = [];
 
     const type = ambientSelect.value;
     if (type === 'none') return;
     initAudio();
 
+    /* Brown-ish noise for the body of each scene */
     const bufSize = audioCtx.sampleRate * 2;
     const buf     = audioCtx.createBuffer(1, bufSize, audioCtx.sampleRate);
     const data    = buf.getChannelData(0);
@@ -1080,10 +1325,60 @@ function playAmbient() {
     ambientNode.loop = true;
     ambientFilter = audioCtx.createBiquadFilter();
 
+    /* All scenes breathe: a very slow LFO drifts the bed level so the
+       texture never sounds frozen. */
+    const bedGain = audioCtx.createGain();
+    bedGain.gain.value = 0.85;
+    const driftLfo  = audioCtx.createOscillator();
+    driftLfo.type = 'sine';
+    driftLfo.frequency.value = 0.05 + Math.random() * 0.03;
+    const driftDepth = audioCtx.createGain();
+    driftDepth.gain.value = 0.12;
+    driftLfo.connect(driftDepth);
+    driftDepth.connect(bedGain.gain);
+    driftLfo.start();
+    ambientExtras.push(bedGain, driftLfo, driftDepth);
+
+    /* White noise buffer for sparkle/babble layers */
+    function makeWhiteSource() {
+        const wb = audioCtx.createBuffer(1, bufSize, audioCtx.sampleRate);
+        const wd = wb.getChannelData(0);
+        for (let i = 0; i < bufSize; i++) wd[i] = Math.random() * 2 - 1;
+        const src = audioCtx.createBufferSource();
+        src.buffer = wb; src.loop = true;
+        return src;
+    }
+
     if (type === 'rain') {
         ambientFilter.type = 'lowpass'; ambientFilter.frequency.value = 800; ambientFilter.Q.value = 0.5;
+        // High, quiet sheen of droplets above the low rain body
+        const sparkle  = makeWhiteSource();
+        const spFilter = audioCtx.createBiquadFilter();
+        spFilter.type = 'bandpass'; spFilter.frequency.value = 4200; spFilter.Q.value = 0.8;
+        const spGain = audioCtx.createGain(); spGain.gain.value = 0.035;
+        const spLfo  = audioCtx.createOscillator();
+        spLfo.type = 'sine'; spLfo.frequency.value = 0.11;
+        const spLfoDepth = audioCtx.createGain(); spLfoDepth.gain.value = 0.015;
+        spLfo.connect(spLfoDepth); spLfoDepth.connect(spGain.gain);
+        sparkle.connect(spFilter); spFilter.connect(spGain); spGain.connect(ambientVolGain);
+        sparkle.start(); spLfo.start();
+        ambientExtras.push(sparkle, spFilter, spGain, spLfo, spLfoDepth);
+
     } else if (type === 'stream') {
         ambientFilter.type = 'lowpass'; ambientFilter.frequency.value = 350; ambientFilter.Q.value = 0.5;
+        // Babble layer: mid-band water chatter, wandering in pitch
+        const babble  = makeWhiteSource();
+        const bbFilter = audioCtx.createBiquadFilter();
+        bbFilter.type = 'bandpass'; bbFilter.frequency.value = 1100; bbFilter.Q.value = 2.2;
+        const bbGain = audioCtx.createGain(); bbGain.gain.value = 0.05;
+        const bbLfo  = audioCtx.createOscillator();
+        bbLfo.type = 'sine'; bbLfo.frequency.value = 0.3;
+        const bbLfoDepth = audioCtx.createGain(); bbLfoDepth.gain.value = 220;
+        bbLfo.connect(bbLfoDepth); bbLfoDepth.connect(bbFilter.frequency);
+        babble.connect(bbFilter); bbFilter.connect(bbGain); bbGain.connect(ambientVolGain);
+        babble.start(); bbLfo.start();
+        ambientExtras.push(babble, bbFilter, bbGain, bbLfo, bbLfoDepth);
+
     } else if (type === 'wind') {
         ambientFilter.type = 'bandpass'; ambientFilter.frequency.value = 250; ambientFilter.Q.value = 0.5;
         windLfo = audioCtx.createOscillator();
@@ -1092,14 +1387,39 @@ function playAmbient() {
         windLfo.connect(windLfoGain); windLfoGain.connect(ambientFilter.frequency);
         windLfo.start();
     }
+
     ambientNode.connect(ambientFilter);
-    ambientFilter.connect(ambientVolGain);
+    ambientFilter.connect(bedGain);
+    bedGain.connect(ambientVolGain);
     ambientNode.start();
 }
 
 ambientSelect.addEventListener('change', () => { initAudio(); playAmbient(); });
 pacerVolSlider.addEventListener('input',  e => { if (pacerVolGain)  pacerVolGain.gain.setTargetAtTime(e.target.value,  audioCtx.currentTime, 0.1); });
 ambientVolSlider.addEventListener('input',e => { if (ambientVolGain) ambientVolGain.gain.setTargetAtTime(e.target.value, audioCtx.currentTime, 0.1); });
+
+/* Soft swell envelope with monotonic, clamped timings — safe even for
+   very short phases. */
+function applySwell(gainParam, t0, tEnd, peak, attack) {
+    const atk = Math.min(attack, (tEnd - t0) * 0.5);
+    gainParam.setValueAtTime(0.0001, t0);
+    gainParam.exponentialRampToValueAtTime(peak, t0 + atk);
+    gainParam.setValueAtTime(peak, Math.max(t0 + atk, tEnd - atk));
+    gainParam.exponentialRampToValueAtTime(0.0001, tEnd);
+}
+
+/* Very slow pitch shimmer (±cents) attached to a set of oscillators */
+function attachVibrato(oscs, when, stopAt, cents = 2.5) {
+    const lfo = audioCtx.createOscillator();
+    lfo.type = 'sine';
+    lfo.frequency.value = 0.13 + Math.random() * 0.1;
+    const depth = audioCtx.createGain();
+    depth.gain.value = cents;
+    lfo.connect(depth);
+    oscs.forEach(o => depth.connect(o.detune));
+    lfo.start(when);
+    lfo.stop(stopAt);
+}
 
 function triggerAudio(phaseType, duration, baseFreq) {
     const choice = soundSelect.value;
@@ -1108,33 +1428,40 @@ function triggerAudio(phaseType, duration, baseFreq) {
 
     const now = audioCtx.currentTime;
     const gap = 0.15;
+    const end = now + duration - gap;
 
     if (choice === 'sine') {
-        const osc = audioCtx.createOscillator();
-        osc.type = 'sine'; osc.frequency.value = baseFreq;
+        // Two gently detuned sines through a soft low-pass — rounder than a raw tone
+        const filter = audioCtx.createBiquadFilter();
+        filter.type = 'lowpass'; filter.frequency.value = 1600; filter.Q.value = 0.4;
         const gain = audioCtx.createGain();
-        gain.gain.setValueAtTime(0, now);
-        gain.gain.linearRampToValueAtTime(0.5, now + 1);
-        gain.gain.setValueAtTime(0.5, now + duration - 1);
-        gain.gain.linearRampToValueAtTime(0.001, now + duration - gap);
-        osc.connect(gain); gain.connect(pacerSwellGain);
-        osc.start(now); osc.stop(now + duration - gap);
+        applySwell(gain.gain, now, end, 0.4, 1.2);
+        filter.connect(gain); gain.connect(pacerSwellGain);
+        const oscs = makeVoice(baseFreq, filter, now, end, 'sine', 3);
+        attachVibrato(oscs, now, end, 2);
 
     } else if (choice === 'warm') {
-        const osc1 = audioCtx.createOscillator(), osc2 = audioCtx.createOscillator();
-        osc1.type = 'sine'; osc1.frequency.value = baseFreq;
-        osc2.type = 'triangle'; osc2.frequency.value = baseFreq * 0.5;
-        const filter = audioCtx.createBiquadFilter(); filter.type = 'lowpass';
-        const gain   = audioCtx.createGain();
-        filter.frequency.setValueAtTime(400, now);
-        filter.frequency.linearRampToValueAtTime(1200, now + duration * 0.4);
-        filter.frequency.exponentialRampToValueAtTime(200, now + duration - gap);
-        gain.gain.setValueAtTime(0, now);
-        gain.gain.linearRampToValueAtTime(0.5, now + 1);
-        gain.gain.setValueAtTime(0.5, now + duration - 1);
-        gain.gain.linearRampToValueAtTime(0.001, now + duration - gap);
-        osc1.connect(filter); osc2.connect(filter); filter.connect(gain); gain.connect(pacerSwellGain);
-        osc1.start(now); osc2.start(now); osc1.stop(now + duration - gap); osc2.stop(now + duration - gap);
+        // Layered swell: detuned fundamental + sub-octave + airy octave,
+        // all breathing through a slowly opening low-pass
+        const filter = audioCtx.createBiquadFilter();
+        filter.type = 'lowpass'; filter.Q.value = 0.5;
+        filter.frequency.setValueAtTime(350, now);
+        filter.frequency.linearRampToValueAtTime(1100, now + duration * 0.4);
+        filter.frequency.exponentialRampToValueAtTime(220, end);
+        const gain = audioCtx.createGain();
+        applySwell(gain.gain, now, end, 0.45, 1.3);
+        filter.connect(gain); gain.connect(pacerSwellGain);
+
+        const fund = makeVoice(baseFreq,       filter, now, end, 'sine',     4);
+        const sub  = makeVoice(baseFreq * 0.5, filter, now, end, 'triangle', 3);
+        attachVibrato([...fund, ...sub], now, end, 2.5);
+
+        const shimmer = audioCtx.createOscillator();
+        shimmer.type = 'sine'; shimmer.frequency.value = baseFreq * 2; shimmer.detune.value = 5;
+        const shGain = audioCtx.createGain();
+        applySwell(shGain.gain, now, end, 0.05, 1.6);
+        shimmer.connect(shGain); shGain.connect(pacerSwellGain);
+        shimmer.start(now); shimmer.stop(end);
 
     } else if (choice === 'chords') {
         const freqs = phaseType === 'inhale'
@@ -1142,17 +1469,19 @@ function triggerAudio(phaseType, duration, baseFreq) {
             : phaseType === 'exhale'
             ? [130.81, 196.00, 261.63, 329.63]
             : [196.00, 293.66, 392.00, 493.88];
-        const gain = audioCtx.createGain();
-        const maxG = 0.8 / freqs.length;
-        gain.gain.setValueAtTime(0, now);
-        gain.gain.linearRampToValueAtTime(maxG, now + 1.5);
-        gain.gain.setValueAtTime(maxG, now + duration - 1);
-        gain.gain.linearRampToValueAtTime(0.001, now + duration - gap);
-        gain.connect(pacerSwellGain);
-        freqs.forEach(f => {
-            const osc = audioCtx.createOscillator();
-            osc.type = 'sine'; osc.frequency.value = f;
-            osc.connect(gain); osc.start(now); osc.stop(now + duration - gap);
+        const filter = audioCtx.createBiquadFilter();
+        filter.type = 'lowpass'; filter.frequency.value = 1800; filter.Q.value = 0.3;
+        filter.connect(pacerSwellGain);
+        // Notes bloom one after another, like fingers settling on strings
+        freqs.forEach((f, i) => {
+            const t0 = now + i * 0.22;
+            if (t0 >= end - 0.3) return;
+            const g = audioCtx.createGain();
+            const peak = (0.55 / freqs.length) * (1 - i * 0.08);
+            applySwell(g.gain, t0, end, peak, 1.2);
+            g.connect(filter);
+            const oscs = makeVoice(f, g, t0, end, 'sine', 3);
+            attachVibrato(oscs, t0, end, 1.8);
         });
 
     } else if (choice === 'ocean') {
@@ -1163,10 +1492,7 @@ function triggerAudio(phaseType, duration, baseFreq) {
         const noise = audioCtx.createBufferSource(); noise.buffer = buf; noise.loop = true;
         const filter = audioCtx.createBiquadFilter(); filter.type = 'lowpass'; filter.Q.value = 1;
         const gain = audioCtx.createGain();
-        gain.gain.setValueAtTime(0, now);
-        gain.gain.linearRampToValueAtTime(0.8, now + 1);
-        gain.gain.setValueAtTime(0.8, now + duration - 1);
-        gain.gain.linearRampToValueAtTime(0.001, now + duration - gap);
+        applySwell(gain.gain, now, end, 0.75, 1.2);
         if (phaseType === 'inhale') {
             filter.frequency.setValueAtTime(100, now);
             filter.frequency.linearRampToValueAtTime(800, now + duration);
@@ -1182,21 +1508,33 @@ function triggerAudio(phaseType, duration, baseFreq) {
 }
 
 function playCompletionTone() {
+    // A single soft singing-bowl strike: slightly inharmonic partials,
+    // gentle beating, long decay through the reverb.
     initAudio();
     const now = audioCtx.currentTime;
-    const freqs = [261.63, 329.63, 392.00, 523.25];
-    const gain = audioCtx.createGain();
-    gain.gain.setValueAtTime(0, now);
-    gain.gain.linearRampToValueAtTime(0.12, now + 0.6);
-    gain.gain.setValueAtTime(0.12, now + 2.5);
-    gain.gain.linearRampToValueAtTime(0, now + 4);
-    gain.connect(audioCtx.destination);
-    freqs.forEach((f, i) => {
-        const osc = audioCtx.createOscillator();
-        osc.type = 'sine'; osc.frequency.value = f;
-        osc.connect(gain);
-        osc.start(now + i * 0.08);
-        osc.stop(now + 4);
+    const out = audioCtx.createGain();
+    out.gain.value = 1;
+    out.connect(audioCtx.destination);
+    if (reverbNode) out.connect(reverbNode);
+
+    const partials = [
+        { f: 261.63, g: 0.16, d: 6.5, beat: 1.0035 },
+        { f: 523.90, g: 0.07, d: 5.0, beat: 0      },
+        { f: 785.50, g: 0.04, d: 4.0, beat: 0      },
+        { f: 1047.7, g: 0.02, d: 3.0, beat: 0      },
+    ];
+    partials.forEach(p => {
+        const freqs = p.beat ? [p.f, p.f * p.beat] : [p.f];
+        freqs.forEach(f => {
+            const o = audioCtx.createOscillator();
+            o.type = 'sine'; o.frequency.value = f;
+            const g = audioCtx.createGain();
+            g.gain.setValueAtTime(0.0001, now);
+            g.gain.exponentialRampToValueAtTime(p.g / freqs.length, now + 0.06);
+            g.gain.setTargetAtTime(0.0001, now + 0.12, p.d / 5);
+            o.connect(g); g.connect(out);
+            o.start(now); o.stop(now + 9);
+        });
     });
 }
 
@@ -1211,9 +1549,6 @@ function formatTime(sec) {
     return `${m}:${s.toString().padStart(2,'0')}`;
 }
 
-function haptic() {
-    if (hapticToggle.checked && 'vibrate' in navigator) navigator.vibrate(HAPTIC_MS);
-}
 
 /* ═══════════════════════════════════════════════════════════════
    ANIMATION LOOP
@@ -1275,7 +1610,6 @@ function loop(timestamp) {
             triggerAudio(phase.type, phase.duration, phase.freq);
             instructionEl.textContent = phase.text;
             setPhaseColor(phase.type);
-            haptic();
 
             // Hold-phase pulsing glow
             if (phase.type === 'hold') {
@@ -1352,6 +1686,10 @@ function showCompleteOverlay() {
             `<strong>${totalMins} min</strong> of ${patternLabel}<br>` +
             `~${breaths} breath cycles completed`;
 
+        const q = drawQuote();
+        completeQuoteText.textContent   = `“${q.t}”`;
+        completeQuoteAuthor.textContent = q.a;
+
         completeOverlay.classList.add('visible');
         requestAnimationFrame(() => {
             requestAnimationFrame(() => completeOverlay.classList.add('shown'));
@@ -1367,6 +1705,7 @@ completeBtn.addEventListener('click', () => {
     completeOverlay.classList.remove('shown');
     setTimeout(() => completeOverlay.classList.remove('visible'), 600);
     resetSession();
+    showIdleQuote(); // a fresh thought greets the next session
 });
 
 /* ═══════════════════════════════════════════════════════════════
@@ -1471,6 +1810,7 @@ function resetSession() {
     setPhaseColor('exhale'); // neutral teal at rest
 
     if (pacerSwellGain) pacerSwellGain.gain.setTargetAtTime(0, audioCtx.currentTime, 0.1);
+    showIdleQuote();
 }
 
 startBtn.addEventListener('click', () => { startSession(); updateQuickPauseBtn(); });
@@ -1503,6 +1843,7 @@ patternSelect.addEventListener('change', e => {
         customRow.style.display = 'none';
         sessionState.currentPattern    = PATTERNS[e.target.value].phases;
         sessionState.currentPatternKey = e.target.value;
+        applyPatternTheme(e.target.value);
     }
     resetSession();
 });
@@ -1561,8 +1902,10 @@ window.addEventListener('pagehide', flushStats);
    INIT
 ═══════════════════════════════════════════════════════════════ */
 loadStats();
+applyPatternTheme('4-6');
 timerDisplay.textContent = formatTime(sessionState.totalTimeRemaining);
 setPhaseColor('exhale');
+showIdleQuote();
 </script>
 
 <script>
