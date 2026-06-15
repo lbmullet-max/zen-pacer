@@ -1518,33 +1518,21 @@ function triggerAudio(phaseType, duration, baseFreq) {
 }
 
 function playCompletionTone() {
-    // A single soft singing-bowl strike: slightly inharmonic partials,
-    // gentle beating, long decay through the reverb.
     initAudio();
     const now = audioCtx.currentTime;
-    const out = audioCtx.createGain();
-    out.gain.value = 1;
-    out.connect(audioCtx.destination);
-    if (reverbNode) out.connect(reverbNode);
-
-    const partials = [
-        { f: 261.63, g: 0.16, d: 6.5, beat: 1.0035 },
-        { f: 523.90, g: 0.07, d: 5.0, beat: 0      },
-        { f: 785.50, g: 0.04, d: 4.0, beat: 0      },
-        { f: 1047.7, g: 0.02, d: 3.0, beat: 0      },
-    ];
-    partials.forEach(p => {
-        const freqs = p.beat ? [p.f, p.f * p.beat] : [p.f];
-        freqs.forEach(f => {
-            const o = audioCtx.createOscillator();
-            o.type = 'sine'; o.frequency.value = f;
-            const g = audioCtx.createGain();
-            g.gain.setValueAtTime(0.0001, now);
-            g.gain.exponentialRampToValueAtTime(p.g / freqs.length, now + 0.06);
-            g.gain.setTargetAtTime(0.0001, now + 0.12, p.d / 5);
-            o.connect(g); g.connect(out);
-            o.start(now); o.stop(now + 9);
-        });
+    const freqs = [261.63, 329.63, 392.00, 523.25];
+    const gain = audioCtx.createGain();
+    gain.gain.setValueAtTime(0, now);
+    gain.gain.linearRampToValueAtTime(0.12, now + 0.6);
+    gain.gain.setValueAtTime(0.12, now + 2.5);
+    gain.gain.linearRampToValueAtTime(0, now + 4);
+    gain.connect(audioCtx.destination);
+    freqs.forEach((f, i) => {
+        const osc = audioCtx.createOscillator();
+        osc.type = 'sine'; osc.frequency.value = f;
+        osc.connect(gain);
+        osc.start(now + i * 0.08);
+        osc.stop(now + 4);
     });
 }
 
