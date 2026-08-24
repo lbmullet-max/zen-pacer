@@ -281,27 +281,6 @@
         }
         select option { background: #1a2e1e; }
 
-        .custom-grid {
-            display: grid;
-            grid-template-columns: repeat(4, 1fr);
-            gap: 8px;
-            width: 100%;
-        }
-        .custom-cell {
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            gap: 5px;
-            font-size: 0.72rem;
-            color: var(--text-muted);
-        }
-        .custom-cell input {
-            width: 100% !important;
-            padding: 7px 4px !important;
-            text-align: center;
-        }
-        #custom-row { display: none; }
-
         .mixer-row {
             display: flex;
             gap: 16px;
@@ -411,13 +390,6 @@
             color: var(--text-primary);
             font-family: 'DM Serif Display', serif;
         }
-        #stats-display {
-            font-size: 0.78rem;
-            color: var(--text-muted);
-            letter-spacing: 1px;
-            margin-top: 2px;
-        }
-
         /* ─── Instruction label ──────────────────────────────────────── */
         #instruction {
             font-family: 'DM Serif Display', serif;
@@ -610,20 +582,6 @@
             flex-shrink: 0;
         }
 
-        /* ─── Audio tip banner (mobile only) ────────────────────────── */
-        #audio-tip {
-            display: none;
-            font-size: 0.75rem;
-            color: var(--text-muted);
-            text-align: center;
-            padding: 8px 12px;
-            background: rgba(255,255,255,0.03);
-            border-radius: 8px;
-            margin-top: 10px;
-            border: 1px solid rgba(255,255,255,0.06);
-            line-height: 1.4;
-        }
-
         /* ─── Safe-area top: nothing clips under Android status bar ─── */
         body {
             padding-top: env(safe-area-inset-top, 0px);
@@ -632,7 +590,6 @@
         /* ─── Mobile bottom-sheet layout ─────────────────────────────── */
         @media (max-width: 640px) {
             #sheet-handle { display: block; }
-            #audio-tip    { display: block; }
 
             /* Lift panel out of normal flow so it can't push the circle off-screen */
             #control-panel {
@@ -704,29 +661,8 @@
                         <option value="box">Box (4-4-4-4)</option>
                         <option value="4-7-8">Deep Rest (4-7-8)</option>
                         <option value="4-2-4-2">Balanced (4-2-4-2)</option>
-                        <option value="custom">Custom Setup…</option>
                     </select>
                     <div id="pattern-description"></div>
-                </div>
-
-                <!-- Custom pattern inputs -->
-                <div class="custom-grid" id="custom-row">
-                    <div class="custom-cell">
-                        <label>Inhale</label>
-                        <input type="number" id="c-in"  value="4" min="1" max="20">
-                    </div>
-                    <div class="custom-cell">
-                        <label>Hold</label>
-                        <input type="number" id="c-h1" value="2" min="0" max="20">
-                    </div>
-                    <div class="custom-cell">
-                        <label>Exhale</label>
-                        <input type="number" id="c-out" value="6" min="1" max="20">
-                    </div>
-                    <div class="custom-cell">
-                        <label>Hold</label>
-                        <input type="number" id="c-h2" value="0" min="0" max="20">
-                    </div>
                 </div>
 
                 <!-- Session length -->
@@ -741,26 +677,13 @@
                 <div class="row">
                     <select id="sound-select">
                         <option value="chords">Resolving Chords</option>
-                        <option value="warm">Warm Synth</option>
-                        <option value="ocean">Ocean Waves</option>
-                        <option value="sine">Basic Sine</option>
                         <option value="mute">Mute</option>
-                    </select>
-                    <select id="ambient-select">
-                        <option value="none">No Background</option>
-                        <option value="rain">Soft Rain</option>
-                        <option value="wind">Gentle Wind</option>
-                        <option value="stream">Forest Stream</option>
                     </select>
                 </div>
                 <div class="mixer-row">
                     <div class="mixer-col">
-                        <label>Breathing Vol</label>
+                        <label>Volume</label>
                         <input type="range" id="pacer-vol-slider" min="0" max="1" step="0.01" value="1">
-                    </div>
-                    <div class="mixer-col">
-                        <label>Nature Vol</label>
-                        <input type="range" id="ambient-vol-slider" min="0" max="1" step="0.01" value="0.35">
                     </div>
                 </div>
 
@@ -774,10 +697,7 @@
             <button id="reset-btn">Reset</button>
         </div>
 
-        <div id="audio-tip">💡 Keep screen on during sessions for continuous audio</div>
-
         <div id="timer-display">16:00</div>
-        <div id="stats-display">Streak: 0 Days · Total: 0 Mins</div>
     </div><!-- /control-panel -->
 
     <div id="app-title">Breathing is <em>Beautiful</em></div>
@@ -815,79 +735,13 @@ const EASE_POWER          = 2;
 const ARC_RADIUS          = 122;
 const ARC_CIRCUMFERENCE   = 2 * Math.PI * ARC_RADIUS;
 const COMPLETION_HOLD_SEC = 3;       // stillness before overlay
-const STATS_KEY           = 'breathBeautifulStats_v2';
-
-/* Phase colour palettes: [hue, sat%, light%] — overridden per pattern theme */
-let PHASE_COLORS = {
+/* Phase colour palette: [hue, sat%, light%] — one consistent theme
+   throughout, forest sage. Colour still shifts per breathing phase. */
+const PHASE_COLORS = {
     inhale: { hue: 38,  sat: '65%', light: '60%' },
     hold:   { hue: 200, sat: '30%', light: '62%' },
-    exhale: { hue: 172, sat: '45%', light: '52%' },
+    exhale: { hue: 155, sat: '42%', light: '52%' },
 };
-
-/* Per-pattern themes: background palette + phase colors */
-const PATTERN_THEMES = {
-    '4-6': {
-        // Forest sage — earthy, parasympathetic calm
-        bgDark: '#0e1710', bgMid: '#121c14', bgRadial: '#1b2e1e',
-        textPrimary: '#dce8df', textMuted: '#7a9882',
-        phases: {
-            inhale: { hue: 38,  sat: '65%', light: '60%' },
-            hold:   { hue: 200, sat: '30%', light: '62%' },
-            exhale: { hue: 155, sat: '42%', light: '52%' },
-        }
-    },
-    '5-5': {
-        // Ocean blue — coherent, focused clarity
-        bgDark: '#0b1520', bgMid: '#0f1c2c', bgRadial: '#142438',
-        textPrimary: '#d8e8f0', textMuted: '#6a92aa',
-        phases: {
-            inhale: { hue: 205, sat: '60%', light: '65%' },
-            hold:   { hue: 215, sat: '25%', light: '58%' },
-            exhale: { hue: 190, sat: '50%', light: '55%' },
-        }
-    },
-    'box': {
-        // Deep indigo — structured, disciplined stillness
-        bgDark: '#100d1e', bgMid: '#15112a', bgRadial: '#1e1638',
-        textPrimary: '#e0daf0', textMuted: '#8878b8',
-        phases: {
-            inhale: { hue: 255, sat: '55%', light: '70%' },
-            hold:   { hue: 240, sat: '28%', light: '60%' },
-            exhale: { hue: 275, sat: '42%', light: '60%' },
-        }
-    },
-    '4-7-8': {
-        // Midnight — deep rest, pre-sleep quiet
-        bgDark: '#080c18', bgMid: '#0c1020', bgRadial: '#101628',
-        textPrimary: '#d4d8e8', textMuted: '#5a6480',
-        phases: {
-            inhale: { hue: 220, sat: '45%', light: '65%' },
-            hold:   { hue: 230, sat: '20%', light: '52%' },
-            exhale: { hue: 210, sat: '38%', light: '50%' },
-        }
-    },
-    '4-2-4-2': {
-        // Warm amber — balanced, morning energy
-        bgDark: '#1a1208', bgMid: '#1e1810', bgRadial: '#2c2010',
-        textPrimary: '#ece0cc', textMuted: '#9c8060',
-        phases: {
-            inhale: { hue: 38,  sat: '72%', light: '64%' },
-            hold:   { hue: 28,  sat: '42%', light: '58%' },
-            exhale: { hue: 50,  sat: '55%', light: '56%' },
-        }
-    },
-};
-
-function applyPatternTheme(key) {
-    const theme = PATTERN_THEMES[key] || PATTERN_THEMES['4-6'];
-    const root  = document.documentElement;
-    root.style.setProperty('--bg-dark',      theme.bgDark);
-    root.style.setProperty('--bg-mid',       theme.bgMid);
-    root.style.setProperty('--bg-radial',    theme.bgRadial);
-    root.style.setProperty('--text-primary', theme.textPrimary);
-    root.style.setProperty('--text-muted',   theme.textMuted);
-    PHASE_COLORS = theme.phases;
-}
 
 /* ═══════════════════════════════════════════════════════════════
    PATTERN LIBRARY
@@ -1003,7 +857,6 @@ const sessionState = {
     patternTime:        0,
     startingMinutes:    16,
     totalTimeRemaining: 16 * 60,
-    pendingSeconds:     0,
     currentPattern:     PATTERNS['4-6'].phases,
     currentPatternKey:  '4-6',
     lastPhaseIndex:     -1,
@@ -1018,14 +871,8 @@ const sessionState = {
 let audioCtx        = null;
 let pacerSwellGain  = null;
 let pacerVolGain    = null;
-let ambientVolGain  = null;
-let ambientNode     = null;
-let ambientFilter   = null;
-let windLfo         = null;
-let windLfoGain     = null;
 let reverbNode      = null;   // shared generated-hall reverb (wet bus)
 let reverbSend      = null;
-let ambientExtras   = [];     // extra layers/LFOs per ambient scene
 let wakeLock        = null;
 let keepAliveOsc    = null;   // silent oscillator to keep audio alive on lock screen
 let keepAliveGain   = null;
@@ -1037,17 +884,14 @@ const circle          = document.getElementById('circle');
 const instructionEl   = document.getElementById('instruction');
 const phaseCountdown  = document.getElementById('phase-countdown');
 const timerDisplay    = document.getElementById('timer-display');
-const statsDisplay    = document.getElementById('stats-display');
 const bgGlow          = document.getElementById('bg-glow');
 const arcProgress     = document.getElementById('arc-progress');
 
 const patternSelect   = document.getElementById('pattern-select');
 const patternDesc     = document.getElementById('pattern-description');
 const soundSelect     = document.getElementById('sound-select');
-const ambientSelect   = document.getElementById('ambient-select');
 const minutesInput    = document.getElementById('minutes-input');
 const pacerVolSlider  = document.getElementById('pacer-vol-slider');
-const ambientVolSlider= document.getElementById('ambient-vol-slider');
 
 const startBtn        = document.getElementById('start-btn');
 const pauseBtn        = document.getElementById('pause-btn');
@@ -1056,11 +900,6 @@ const quickPauseBtn   = document.getElementById('quick-pause-btn');
 const toggleSettingsBtn = document.getElementById('toggle-settings-btn');
 const miniRevealBtn   = document.getElementById('mini-reveal-btn');
 const settingsBody    = document.getElementById('settings-body');
-const customRow       = document.getElementById('custom-row');
-const cIn             = document.getElementById('c-in');
-const cH1             = document.getElementById('c-h1');
-const cOut            = document.getElementById('c-out');
-const cH2             = document.getElementById('c-h2');
 
 const completeOverlay = document.getElementById('complete-overlay');
 const completeStats   = document.getElementById('complete-stats');
@@ -1167,47 +1006,6 @@ function releaseWakeLock() {
 }
 
 /* ═══════════════════════════════════════════════════════════════
-   STATS (localStorage)
-═══════════════════════════════════════════════════════════════ */
-let currentStats = { totalSeconds: 0, streak: 0, lastDate: '' };
-
-function loadStats() {
-    try {
-        const saved = localStorage.getItem(STATS_KEY);
-        if (saved) currentStats = JSON.parse(saved);
-    } catch (e) { /* storage blocked */ }
-    renderStats();
-}
-
-function renderStats() {
-    const mins = Math.floor((currentStats.totalSeconds || 0) / 60);
-    statsDisplay.textContent = `Streak: ${currentStats.streak || 0} Days · Total: ${mins} Mins`;
-}
-
-function saveSessionStats(secondsCompleted) {
-    if (secondsCompleted <= 0) return;
-    const today = new Date().toDateString();
-    if (currentStats.lastDate !== today) {
-        const yesterday = new Date();
-        yesterday.setDate(yesterday.getDate() - 1);
-        currentStats.streak = currentStats.lastDate === yesterday.toDateString()
-            ? currentStats.streak + 1
-            : 1;
-        currentStats.lastDate = today;
-    }
-    currentStats.totalSeconds += secondsCompleted;
-    try { localStorage.setItem(STATS_KEY, JSON.stringify(currentStats)); } catch (e) {}
-    renderStats();
-}
-
-function flushStats() {
-    if (sessionState.pendingSeconds > 0) {
-        saveSessionStats(sessionState.pendingSeconds);
-        sessionState.pendingSeconds = 0;
-    }
-}
-
-/* ═══════════════════════════════════════════════════════════════
    AUDIO — keep-alive for Android lock screen
 ═══════════════════════════════════════════════════════════════ */
 function startKeepAlive() {
@@ -1287,12 +1085,9 @@ function initAudio() {
         audioCtx       = new (window.AudioContext || window.webkitAudioContext)();
         pacerSwellGain = audioCtx.createGain();
         pacerVolGain   = audioCtx.createGain();
-        ambientVolGain = audioCtx.createGain();
-        pacerVolGain.gain.value   = parseFloat(pacerVolSlider.value);
-        ambientVolGain.gain.value = parseFloat(ambientVolSlider.value);
+        pacerVolGain.gain.value = parseFloat(pacerVolSlider.value);
         pacerSwellGain.connect(pacerVolGain);
         pacerVolGain.connect(audioCtx.destination);
-        ambientVolGain.connect(audioCtx.destination);
 
         // Reverb wet bus: pacer voices send into a generated hall,
         // blended back in under the pacer volume control.
@@ -1308,105 +1103,7 @@ function initAudio() {
     if (audioCtx.state === 'suspended') audioCtx.resume().catch(() => {});
 }
 
-function playAmbient() {
-    [ambientNode, ambientFilter, windLfo, windLfoGain, ...ambientExtras].forEach(n => {
-        if (n) { try { n.stop(); } catch(e){} try { n.disconnect(); } catch(e){} }
-    });
-    ambientNode = ambientFilter = windLfo = windLfoGain = null;
-    ambientExtras = [];
-
-    const type = ambientSelect.value;
-    if (type === 'none') return;
-    initAudio();
-
-    /* Brown-ish noise for the body of each scene */
-    const bufSize = audioCtx.sampleRate * 2;
-    const buf     = audioCtx.createBuffer(1, bufSize, audioCtx.sampleRate);
-    const data    = buf.getChannelData(0);
-    let last = 0;
-    for (let i = 0; i < bufSize; i++) {
-        const white = Math.random() * 2 - 1;
-        data[i] = (last + 0.02 * white) / 1.02;
-        last = data[i];
-        data[i] *= 3.5;
-    }
-    ambientNode = audioCtx.createBufferSource();
-    ambientNode.buffer = buf;
-    ambientNode.loop = true;
-    ambientFilter = audioCtx.createBiquadFilter();
-
-    /* All scenes breathe: a very slow LFO drifts the bed level so the
-       texture never sounds frozen. */
-    const bedGain = audioCtx.createGain();
-    bedGain.gain.value = 0.85;
-    const driftLfo  = audioCtx.createOscillator();
-    driftLfo.type = 'sine';
-    driftLfo.frequency.value = 0.05 + Math.random() * 0.03;
-    const driftDepth = audioCtx.createGain();
-    driftDepth.gain.value = 0.12;
-    driftLfo.connect(driftDepth);
-    driftDepth.connect(bedGain.gain);
-    driftLfo.start();
-    ambientExtras.push(bedGain, driftLfo, driftDepth);
-
-    /* White noise buffer for sparkle/babble layers */
-    function makeWhiteSource() {
-        const wb = audioCtx.createBuffer(1, bufSize, audioCtx.sampleRate);
-        const wd = wb.getChannelData(0);
-        for (let i = 0; i < bufSize; i++) wd[i] = Math.random() * 2 - 1;
-        const src = audioCtx.createBufferSource();
-        src.buffer = wb; src.loop = true;
-        return src;
-    }
-
-    if (type === 'rain') {
-        ambientFilter.type = 'lowpass'; ambientFilter.frequency.value = 800; ambientFilter.Q.value = 0.5;
-        // High, quiet sheen of droplets above the low rain body
-        const sparkle  = makeWhiteSource();
-        const spFilter = audioCtx.createBiquadFilter();
-        spFilter.type = 'bandpass'; spFilter.frequency.value = 4200; spFilter.Q.value = 0.8;
-        const spGain = audioCtx.createGain(); spGain.gain.value = 0.035;
-        const spLfo  = audioCtx.createOscillator();
-        spLfo.type = 'sine'; spLfo.frequency.value = 0.11;
-        const spLfoDepth = audioCtx.createGain(); spLfoDepth.gain.value = 0.015;
-        spLfo.connect(spLfoDepth); spLfoDepth.connect(spGain.gain);
-        sparkle.connect(spFilter); spFilter.connect(spGain); spGain.connect(ambientVolGain);
-        sparkle.start(); spLfo.start();
-        ambientExtras.push(sparkle, spFilter, spGain, spLfo, spLfoDepth);
-
-    } else if (type === 'stream') {
-        ambientFilter.type = 'lowpass'; ambientFilter.frequency.value = 350; ambientFilter.Q.value = 0.5;
-        // Babble layer: mid-band water chatter, wandering in pitch
-        const babble  = makeWhiteSource();
-        const bbFilter = audioCtx.createBiquadFilter();
-        bbFilter.type = 'bandpass'; bbFilter.frequency.value = 1100; bbFilter.Q.value = 2.2;
-        const bbGain = audioCtx.createGain(); bbGain.gain.value = 0.05;
-        const bbLfo  = audioCtx.createOscillator();
-        bbLfo.type = 'sine'; bbLfo.frequency.value = 0.3;
-        const bbLfoDepth = audioCtx.createGain(); bbLfoDepth.gain.value = 220;
-        bbLfo.connect(bbLfoDepth); bbLfoDepth.connect(bbFilter.frequency);
-        babble.connect(bbFilter); bbFilter.connect(bbGain); bbGain.connect(ambientVolGain);
-        babble.start(); bbLfo.start();
-        ambientExtras.push(babble, bbFilter, bbGain, bbLfo, bbLfoDepth);
-
-    } else if (type === 'wind') {
-        ambientFilter.type = 'bandpass'; ambientFilter.frequency.value = 250; ambientFilter.Q.value = 0.5;
-        windLfo = audioCtx.createOscillator();
-        windLfo.type = 'sine'; windLfo.frequency.value = 0.05;
-        windLfoGain = audioCtx.createGain(); windLfoGain.gain.value = 150;
-        windLfo.connect(windLfoGain); windLfoGain.connect(ambientFilter.frequency);
-        windLfo.start();
-    }
-
-    ambientNode.connect(ambientFilter);
-    ambientFilter.connect(bedGain);
-    bedGain.connect(ambientVolGain);
-    ambientNode.start();
-}
-
-ambientSelect.addEventListener('change', () => { initAudio(); playAmbient(); });
-pacerVolSlider.addEventListener('input',  e => { if (pacerVolGain)  pacerVolGain.gain.setTargetAtTime(e.target.value,  audioCtx.currentTime, 0.1); });
-ambientVolSlider.addEventListener('input',e => { if (ambientVolGain) ambientVolGain.gain.setTargetAtTime(e.target.value, audioCtx.currentTime, 0.1); });
+pacerVolSlider.addEventListener('input', e => { if (pacerVolGain) pacerVolGain.gain.setTargetAtTime(e.target.value, audioCtx.currentTime, 0.1); });
 
 /* Soft swell envelope with monotonic, clamped timings — safe even for
    very short phases. */
@@ -1432,89 +1129,32 @@ function attachVibrato(oscs, when, stopAt, cents = 2.5) {
 }
 
 function triggerAudio(phaseType, duration, baseFreq) {
-    const choice = soundSelect.value;
-    if (choice === 'mute' || !audioCtx || !pacerSwellGain) return;
+    if (soundSelect.value === 'mute' || !audioCtx || !pacerSwellGain) return;
     if (audioCtx.state === 'suspended') audioCtx.resume();
 
     const now = audioCtx.currentTime;
     const gap = 0.15;
     const end = now + duration - gap;
 
-    if (choice === 'sine') {
-        // Two gently detuned sines through a soft low-pass — rounder than a raw tone
-        const filter = audioCtx.createBiquadFilter();
-        filter.type = 'lowpass'; filter.frequency.value = 1600; filter.Q.value = 0.4;
-        const gain = audioCtx.createGain();
-        applySwell(gain.gain, now, end, 0.4, 1.2);
-        filter.connect(gain); gain.connect(pacerSwellGain);
-        const oscs = makeVoice(baseFreq, filter, now, end, 'sine', 3);
-        attachVibrato(oscs, now, end, 2);
-
-    } else if (choice === 'warm') {
-        // Layered swell: detuned fundamental + sub-octave + airy octave,
-        // all breathing through a slowly opening low-pass
-        const filter = audioCtx.createBiquadFilter();
-        filter.type = 'lowpass'; filter.Q.value = 0.5;
-        filter.frequency.setValueAtTime(350, now);
-        filter.frequency.linearRampToValueAtTime(1100, now + duration * 0.4);
-        filter.frequency.exponentialRampToValueAtTime(220, end);
-        const gain = audioCtx.createGain();
-        applySwell(gain.gain, now, end, 0.45, 1.3);
-        filter.connect(gain); gain.connect(pacerSwellGain);
-
-        const fund = makeVoice(baseFreq,       filter, now, end, 'sine',     4);
-        const sub  = makeVoice(baseFreq * 0.5, filter, now, end, 'triangle', 3);
-        attachVibrato([...fund, ...sub], now, end, 2.5);
-
-        const shimmer = audioCtx.createOscillator();
-        shimmer.type = 'sine'; shimmer.frequency.value = baseFreq * 2; shimmer.detune.value = 5;
-        const shGain = audioCtx.createGain();
-        applySwell(shGain.gain, now, end, 0.05, 1.6);
-        shimmer.connect(shGain); shGain.connect(pacerSwellGain);
-        shimmer.start(now); shimmer.stop(end);
-
-    } else if (choice === 'chords') {
-        const freqs = phaseType === 'inhale'
-            ? [174.61, 261.63, 349.23, 440.00]
-            : phaseType === 'exhale'
-            ? [130.81, 196.00, 261.63, 329.63]
-            : [196.00, 293.66, 392.00, 493.88];
-        const filter = audioCtx.createBiquadFilter();
-        filter.type = 'lowpass'; filter.frequency.value = 1800; filter.Q.value = 0.3;
-        filter.connect(pacerSwellGain);
-        // Notes bloom one after another, like fingers settling on strings
-        freqs.forEach((f, i) => {
-            const t0 = now + i * 0.22;
-            if (t0 >= end - 0.3) return;
-            const g = audioCtx.createGain();
-            const peak = (0.55 / freqs.length) * (1 - i * 0.08);
-            applySwell(g.gain, t0, end, peak, 1.2);
-            g.connect(filter);
-            const oscs = makeVoice(f, g, t0, end, 'sine', 3);
-            attachVibrato(oscs, t0, end, 1.8);
-        });
-
-    } else if (choice === 'ocean') {
-        const bufSize = Math.floor(audioCtx.sampleRate * 4);
-        const buf = audioCtx.createBuffer(1, bufSize, audioCtx.sampleRate);
-        const data = buf.getChannelData(0);
-        for (let i = 0; i < bufSize; i++) data[i] = Math.random() * 2 - 1;
-        const noise = audioCtx.createBufferSource(); noise.buffer = buf; noise.loop = true;
-        const filter = audioCtx.createBiquadFilter(); filter.type = 'lowpass'; filter.Q.value = 1;
-        const gain = audioCtx.createGain();
-        applySwell(gain.gain, now, end, 0.75, 1.2);
-        if (phaseType === 'inhale') {
-            filter.frequency.setValueAtTime(100, now);
-            filter.frequency.linearRampToValueAtTime(800, now + duration);
-        } else if (phaseType === 'exhale') {
-            filter.frequency.setValueAtTime(800, now);
-            filter.frequency.linearRampToValueAtTime(100, now + duration);
-        } else {
-            filter.frequency.setValueAtTime(300, now);
-        }
-        noise.connect(filter); filter.connect(gain); gain.connect(pacerSwellGain);
-        noise.start(now); noise.stop(now + duration - gap);
-    }
+    const freqs = phaseType === 'inhale'
+        ? [174.61, 261.63, 349.23, 440.00]
+        : phaseType === 'exhale'
+        ? [130.81, 196.00, 261.63, 329.63]
+        : [196.00, 293.66, 392.00, 493.88];
+    const filter = audioCtx.createBiquadFilter();
+    filter.type = 'lowpass'; filter.frequency.value = 1800; filter.Q.value = 0.3;
+    filter.connect(pacerSwellGain);
+    // Notes bloom one after another, like fingers settling on strings
+    freqs.forEach((f, i) => {
+        const t0 = now + i * 0.22;
+        if (t0 >= end - 0.3) return;
+        const g = audioCtx.createGain();
+        const peak = (0.55 / freqs.length) * (1 - i * 0.08);
+        applySwell(g.gain, t0, end, peak, 1.2);
+        g.connect(filter);
+        const oscs = makeVoice(f, g, t0, end, 'sine', 3);
+        attachVibrato(oscs, t0, end, 1.8);
+    });
 }
 
 function playCompletionTone() {
@@ -1558,14 +1198,12 @@ function loop(timestamp) {
 
     if (sessionState.isRunning) {
         sessionState.totalTimeRemaining -= dt;
-        sessionState.pendingSeconds     += dt;
 
         /* ── Session end ── */
         if (sessionState.totalTimeRemaining <= 0) {
             sessionState.totalTimeRemaining = 0;
             sessionState.isRunning = false;
             cancelAnimationFrame(sessionState.animationFrameId);
-            flushStats();
             releaseWakeLock();
             stopKeepAlive();
             updateMediaSession('none');
@@ -1671,11 +1309,7 @@ function showCompleteOverlay() {
     setTimeout(() => {
         playCompletionTone();
 
-        const patternLabel = sessionState.currentPatternKey === 'custom'
-            ? 'Custom Pattern'
-            : (PATTERNS[sessionState.currentPatternKey]
-                ? patternSelect.options[patternSelect.selectedIndex].text
-                : 'Custom Pattern');
+        const patternLabel = patternSelect.options[patternSelect.selectedIndex].text;
 
         const totalMins   = Math.round(sessionState.startingMinutes);
         const breaths     = sessionState.breathCount;
@@ -1717,14 +1351,12 @@ function setUiState(state) {
         patternSelect.disabled = true;
         soundSelect.disabled   = true;
         minutesInput.disabled  = true;
-        document.querySelectorAll('.custom-cell input').forEach(i => i.disabled = true);
     } else {
         startBtn.disabled  = false;
         pauseBtn.disabled  = true;
         patternSelect.disabled = false;
         soundSelect.disabled   = false;
         minutesInput.disabled  = false;
-        document.querySelectorAll('.custom-cell input').forEach(i => i.disabled = false);
     }
 }
 
@@ -1736,7 +1368,6 @@ function startSession() {
 
     initAudio();
     requestWakeLock();
-    playAmbient();
     setupMediaSession();
     startKeepAlive();
 
@@ -1768,7 +1399,6 @@ function startSession() {
 function pauseSession() {
     sessionState.isRunning = false;
     cancelAnimationFrame(sessionState.animationFrameId);
-    flushStats();
     releaseWakeLock();
     setUiState('paused');
     instructionEl.textContent  = 'Paused';
@@ -1789,7 +1419,6 @@ function resetSession() {
     sessionState.totalTimeRemaining = sessionState.startingMinutes * 60;
 
     cancelAnimationFrame(sessionState.animationFrameId);
-    flushStats();
     releaseWakeLock();
     stopKeepAlive();
     updateMediaSession('none');
@@ -1816,40 +1445,13 @@ pauseBtn.addEventListener('click', () => { pauseSession(); updateQuickPauseBtn()
 resetBtn.addEventListener('click', resetSession);
 
 /* ═══════════════════════════════════════════════════════════════
-   CUSTOM PATTERN
+   PATTERN SELECTION
 ═══════════════════════════════════════════════════════════════ */
-function buildCustomPattern() {
-    const inV  = parseInt(cIn.value)  || 1;
-    const h1V  = parseInt(cH1.value)  || 0;
-    const outV = parseInt(cOut.value) || 1;
-    const h2V  = parseInt(cH2.value)  || 0;
-    const p = [];
-    if (inV  > 0) p.push({type:'inhale', text:'Inhale', duration:inV,  freq:523.25});
-    if (h1V  > 0) p.push({type:'hold',   text:'Hold',   duration:h1V,  holdScale:CIRCLE_HOLD_IN_SCALE,  freq:329.63});
-    if (outV > 0) p.push({type:'exhale', text:'Exhale', duration:outV, freq:392.00});
-    if (h2V  > 0) p.push({type:'hold',   text:'Hold',   duration:h2V,  holdScale:CIRCLE_HOLD_OUT_SCALE, freq:329.63});
-    sessionState.currentPattern    = p;
-    sessionState.currentPatternKey = 'custom';
-}
-
 patternSelect.addEventListener('change', e => {
     updatePatternDescription(e.target.value);
-    if (e.target.value === 'custom') {
-        customRow.style.display = 'grid';
-        buildCustomPattern();
-    } else {
-        customRow.style.display = 'none';
-        sessionState.currentPattern    = PATTERNS[e.target.value].phases;
-        sessionState.currentPatternKey = e.target.value;
-        applyPatternTheme(e.target.value);
-    }
+    sessionState.currentPattern    = PATTERNS[e.target.value].phases;
+    sessionState.currentPatternKey = e.target.value;
     resetSession();
-});
-
-document.querySelectorAll('.custom-cell input').forEach(el => {
-    el.addEventListener('change', () => {
-        if (patternSelect.value === 'custom') { buildCustomPattern(); resetSession(); }
-    });
 });
 
 minutesInput.addEventListener('change', e => {
@@ -1875,15 +1477,11 @@ function restoreAudioAndLock() {
         // Wake lock is released automatically when the page hides; re-request it
         requestWakeLock();
         updateMediaSession('playing');
-        // Restart ambient buffer source — it stops when the context was suspended
-        if (ambientSelect.value !== 'none') playAmbient();
     }
 }
 
 document.addEventListener('visibilitychange', () => {
-    if (document.visibilityState === 'hidden') {
-        flushStats();
-    } else if (document.visibilityState === 'visible') {
+    if (document.visibilityState === 'visible') {
         restoreAudioAndLock();
     }
 });
@@ -1894,13 +1492,9 @@ window.addEventListener('pageshow', (e) => {
     if (e.persisted) restoreAudioAndLock();
 });
 
-window.addEventListener('pagehide', flushStats);
-
 /* ═══════════════════════════════════════════════════════════════
    INIT
 ═══════════════════════════════════════════════════════════════ */
-loadStats();
-applyPatternTheme('4-6');
 timerDisplay.textContent = formatTime(sessionState.totalTimeRemaining);
 setPhaseColor('exhale');
 showIdleQuote();
