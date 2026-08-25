@@ -98,7 +98,7 @@
             -webkit-backdrop-filter: blur(14px);
             border: 1px solid var(--glass-border);
             border-radius: 20px;
-            padding: 18px 20px;
+            padding: 12px 18px;
             width: 100%;
             margin-bottom: 20px;
         }
@@ -110,40 +110,6 @@
             justify-content: space-between;
             width: 100%;
             gap: 10px;
-        }
-
-        #panel-title {
-            font-family: 'DM Serif Display', serif;
-            font-size: 1rem;
-            color: var(--text-primary);
-            opacity: 0.85;
-            letter-spacing: 0.5px;
-            line-height: 1.25;
-        }
-
-        #app-title {
-            font-family: 'DM Serif Display', serif;
-            font-size: 0.88rem;
-            color: var(--text-primary);
-            opacity: 0.5;
-            letter-spacing: 0.5px;
-            text-align: center;
-            margin-bottom: 2px;
-            transition: opacity 0.6s ease;
-        }
-        body.session-active #app-title {
-            opacity: 0;
-            pointer-events: none;
-            margin-bottom: 0;
-            max-height: 0;
-            overflow: hidden;
-            transition: opacity 0.6s ease, max-height 0.4s ease, margin-bottom 0.4s ease;
-        }
-        #app-title em {
-            font-style: italic;
-            color: var(--phase-color);
-            opacity: 1;
-            transition: color 1.2s ease;
         }
 
         /* Collapsed state: only show mini-open button */
@@ -170,16 +136,6 @@
         }
 
         /* ─── Session quick controls (pause visible mid-session) ─────── */
-        #session-quick-controls {
-            display: none;
-            gap: 8px;
-            width: 100%;
-            margin-bottom: 4px;
-        }
-        body.session-active #session-quick-controls {
-            display: flex;
-            align-items: center;
-        }
         #session-top-row {
             display: none;
             gap: 8px;
@@ -213,7 +169,7 @@
             transition: max-height 0.45s cubic-bezier(0.4, 0, 0.2, 1),
                         opacity 0.35s ease,
                         margin-top 0.35s ease;
-            margin-top: 16px;
+            margin-top: 10px;
             opacity: 1;
         }
         #settings-body.collapsed {
@@ -225,10 +181,10 @@
         .settings-section {
             display: flex;
             flex-direction: column;
-            gap: 14px;
-            padding-bottom: 16px;
+            gap: 8px;
+            padding-bottom: 10px;
             border-bottom: 1px solid rgba(255,255,255,0.07);
-            margin-bottom: 16px;
+            margin-bottom: 10px;
         }
         .settings-section:last-child {
             border-bottom: none;
@@ -250,9 +206,9 @@
             width: 100%;
         }
         #pattern-description {
-            font-size: 0.78rem;
+            font-size: 0.75rem;
             color: var(--text-muted);
-            margin-top: 6px;
+            margin-top: 4px;
             min-height: 1.1em;
             font-style: italic;
             letter-spacing: 0.2px;
@@ -263,9 +219,9 @@
             background: rgba(0,0,0,0.25);
             color: var(--text-primary);
             border: 1px solid rgba(255,255,255,0.12);
-            padding: 9px 12px;
+            padding: 7px 10px;
             border-radius: 10px;
-            font-size: 0.95rem;
+            font-size: 0.9rem;
             font-family: 'DM Sans', sans-serif;
             outline: none;
             flex-grow: 1;
@@ -290,8 +246,8 @@
             display: flex;
             flex-direction: column;
             align-items: center;
-            gap: 7px;
-            font-size: 0.8rem;
+            gap: 4px;
+            font-size: 0.78rem;
             color: var(--text-muted);
             flex: 1;
         }
@@ -301,63 +257,14 @@
             cursor: pointer;
         }
 
-        /* ─── Haptic toggle switch ───────────────────────────────────── */
-        .toggle-row {
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            width: 100%;
-        }
-        .toggle-label {
-            color: var(--text-muted);
-            font-size: 0.85rem;
-        }
-        .toggle-switch {
-            position: relative;
-            display: inline-block;
-            width: 42px;
-            height: 24px;
-            flex-shrink: 0;
-        }
-        .toggle-switch input { opacity: 0; width: 0; height: 0; position: absolute; }
-        .toggle-slider {
-            position: absolute;
-            cursor: pointer;
-            inset: 0;
-            background: rgba(255,255,255,0.1);
-            border-radius: 24px;
-            transition: background 0.25s;
-            border: 1px solid rgba(255,255,255,0.12);
-        }
-        .toggle-slider::before {
-            content: '';
-            position: absolute;
-            width: 18px;
-            height: 18px;
-            left: 2px;
-            top: 50%;
-            transform: translateY(-50%);
-            background: var(--text-muted);
-            border-radius: 50%;
-            transition: transform 0.25s, background 0.25s;
-        }
-        .toggle-switch input:checked + .toggle-slider {
-            background: rgba(74,122,90,0.55);
-            border-color: rgba(74,122,90,0.4);
-        }
-        .toggle-switch input:checked + .toggle-slider::before {
-            transform: translate(18px, -50%);
-            background: #7ba98b;
-        }
-
         /* ─── Action buttons ─────────────────────────────────────────── */
         .btn-row {
             display: flex;
             gap: 10px;
             width: 100%;
             justify-content: center;
-            margin-top: 12px;
-            padding-top: 12px;
+            margin-top: 8px;
+            padding-top: 8px;
             border-top: 1px solid rgba(255,255,255,0.07);
         }
         body.session-active .btn-row {
@@ -382,10 +289,10 @@
 
         /* ─── Timer & stats ──────────────────────────────────────────── */
         #timer-display {
-            font-size: 2.6rem;
+            font-size: 2.2rem;
             font-weight: 300;
-            letter-spacing: 3px;
-            margin-top: 6px;
+            letter-spacing: 2px;
+            margin-top: 4px;
             font-variant-numeric: tabular-nums;
             color: var(--text-primary);
             font-family: 'DM Serif Display', serif;
@@ -481,40 +388,6 @@
             animation: holdPulse 2s ease-in-out infinite;
         }
 
-        /* ─── Contemplative quote ────────────────────────────────────── */
-        #quote-box {
-            max-width: 330px;
-            text-align: center;
-            margin-top: 28px;
-            padding: 0 12px;
-            opacity: 1;
-            transition: opacity 1.4s ease;
-        }
-        body.session-active #quote-box {
-            opacity: 0;
-            pointer-events: none;
-        }
-        #quote-text, #complete-quote-text {
-            font-family: 'DM Serif Display', serif;
-            font-style: italic;
-            font-size: 1.02rem;
-            line-height: 1.7;
-            color: var(--text-primary);
-            opacity: 0.82;
-            letter-spacing: 0.2px;
-        }
-        #quote-author, #complete-quote-author {
-            margin-top: 10px;
-            font-size: 0.72rem;
-            letter-spacing: 2px;
-            text-transform: uppercase;
-            color: var(--text-muted);
-        }
-        #complete-quote {
-            max-width: 320px;
-            margin: 0 auto;
-        }
-
         /* ─── Session Complete overlay ──────────────────────────────── */
         #complete-overlay {
             display: none;
@@ -600,7 +473,7 @@
                 max-width: 100%;
                 border-radius: 20px 20px 0 0;
                 margin-bottom: 0;
-                padding-bottom: calc(env(safe-area-inset-bottom, 0px) + 16px);
+                padding-bottom: calc(env(safe-area-inset-bottom, 0px) + 12px);
                 z-index: 50;
             }
 
@@ -608,13 +481,13 @@
             #app {
                 max-width: 100%;
                 min-height: 100vh;
-                padding-bottom: 180px;
+                padding-bottom: 140px;
                 justify-content: center;
             }
 
             /* Settings body scrolls internally, never grows the viewport */
             #settings-body {
-                max-height: 55vh;
+                max-height: 42vh;
                 overflow-y: auto;
                 -webkit-overflow-scrolling: touch;
             }
@@ -628,10 +501,6 @@
 <!-- Session complete overlay -->
 <div id="complete-overlay" role="dialog" aria-modal="true" aria-labelledby="complete-title">
     <div id="complete-title">Well done.</div>
-    <div id="complete-quote">
-        <div id="complete-quote-text"></div>
-        <div id="complete-quote-author"></div>
-    </div>
     <div id="complete-stats"></div>
     <button id="complete-btn">Begin Again</button>
 </div>
@@ -700,8 +569,6 @@
         <div id="timer-display">16:00</div>
     </div><!-- /control-panel -->
 
-    <div id="app-title">Breathing is <em>Beautiful</em></div>
-
     <!-- Instruction text (aria-live for screen readers) -->
     <div id="instruction" aria-live="polite" aria-atomic="true">Ready to breathe</div>
     <div id="phase-countdown"></div>
@@ -713,12 +580,6 @@
             <circle id="arc-progress" cx="130" cy="130" r="122"/>
         </svg>
         <div class="circle" id="circle"></div>
-    </div>
-
-    <!-- Contemplative quote (visible when not in session) -->
-    <div id="quote-box">
-        <div id="quote-text"></div>
-        <div id="quote-author"></div>
     </div>
 
 </div><!-- /app -->
@@ -790,65 +651,6 @@ const PATTERNS = {
 };
 
 /* ═══════════════════════════════════════════════════════════════
-   QUOTES — contemplative & mindful, drawn from a shuffled deck
-   so nothing repeats until every quote has been seen.
-═══════════════════════════════════════════════════════════════ */
-const QUOTES = [
-    { t: 'Breathing in, I calm body and mind. Breathing out, I smile.', a: 'Thich Nhat Hanh' },
-    { t: 'The breath is the bridge which connects life to consciousness.', a: 'Thich Nhat Hanh' },
-    { t: 'Smile, breathe and go slowly.', a: 'Thich Nhat Hanh' },
-    { t: 'Feelings come and go like clouds in a windy sky. Conscious breathing is my anchor.', a: 'Thich Nhat Hanh' },
-    { t: 'Walk as if you are kissing the Earth with your feet.', a: 'Thich Nhat Hanh' },
-    { t: 'Be still, and know that I am God.', a: 'Psalm 46:10' },
-    { t: 'He leads me beside still waters; he restores my soul.', a: 'Psalm 23' },
-    { t: 'Peace I leave with you; my peace I give to you.', a: 'John 14:27' },
-    { t: 'Come to me, all you who are weary, and I will give you rest.', a: 'Matthew 11:28' },
-    { t: 'Sitting quietly, doing nothing, spring comes, and the grass grows by itself.', a: 'Zen proverb' },
-    { t: 'Nature does not hurry, yet everything is accomplished.', a: 'Lao Tzu' },
-    { t: 'When you realize nothing is lacking, the whole world belongs to you.', a: 'Lao Tzu' },
-    { t: 'In the beginner’s mind there are many possibilities; in the expert’s mind there are few.', a: 'Shunryu Suzuki' },
-    { t: 'You are the sky. Everything else is just the weather.', a: 'Pema Chödrön' },
-    { t: 'Tension is who you think you should be. Relaxation is who you are.', a: 'Chinese proverb' },
-    { t: 'Nothing in all creation is so like God as stillness.', a: 'Meister Eckhart' },
-    { t: 'Let nothing disturb you. All things are passing; God never changes.', a: 'Teresa of Ávila' },
-    { t: 'Above all, trust in the slow work of God.', a: 'Pierre Teilhard de Chardin' },
-    { t: 'Happiness is not a matter of intensity but of balance, order, rhythm and harmony.', a: 'Thomas Merton' },
-    { t: 'Sometimes the most important thing in a whole day is the rest we take between two deep breaths.', a: 'Etty Hillesum' },
-    { t: 'Attention is the beginning of devotion.', a: 'Mary Oliver' },
-    { t: 'I come into the peace of wild things who do not tax their lives with forethought of grief.', a: 'Wendell Berry' },
-    { t: 'Deep within us all there is an amazing inner sanctuary of the soul.', a: 'Thomas Kelly' },
-    { t: 'Within you there is a stillness and a sanctuary to which you can retreat at any time.', a: 'Hermann Hesse' },
-    { t: 'You can’t stop the waves, but you can learn to surf.', a: 'Jon Kabat-Zinn' },
-    { t: 'Silence is God’s first language; everything else is a poor translation.', a: 'Thomas Keating' },
-    { t: 'The quieter you become, the more you are able to hear.', a: 'Ram Dass' },
-    { t: 'Realize deeply that the present moment is all you ever have.', a: 'Eckhart Tolle' },
-    { t: 'The temple bell stops — but the sound keeps coming out of the flowers.', a: 'Matsuo Bashō' },
-    { t: 'Let yourself be silently drawn by the strange pull of what you really love.', a: 'Rumi' },
-    { t: 'Almost everything will work again if you unplug it for a few minutes — including you.', a: 'Anne Lamott' },
-    { t: 'Mindfulness isn’t difficult. We just need to remember to do it.', a: 'Sharon Salzberg' },
-];
-
-const QUOTE_DECK_KEY = 'breathQuoteDeck_v1';
-
-function drawQuote() {
-    let deck = null;
-    try { deck = JSON.parse(localStorage.getItem(QUOTE_DECK_KEY)); } catch (e) {}
-    if (!deck || !Array.isArray(deck.order) ||
-        deck.order.length !== QUOTES.length || deck.idx >= QUOTES.length) {
-        const order = QUOTES.map((_, i) => i);
-        for (let i = order.length - 1; i > 0; i--) {
-            const j = Math.floor(Math.random() * (i + 1));
-            [order[i], order[j]] = [order[j], order[i]];
-        }
-        deck = { order, idx: 0 };
-    }
-    const q = QUOTES[deck.order[deck.idx]];
-    deck.idx++;
-    try { localStorage.setItem(QUOTE_DECK_KEY, JSON.stringify(deck)); } catch (e) {}
-    return q;
-}
-
-/* ═══════════════════════════════════════════════════════════════
    SESSION STATE
 ═══════════════════════════════════════════════════════════════ */
 const sessionState = {
@@ -904,22 +706,6 @@ const settingsBody    = document.getElementById('settings-body');
 const completeOverlay = document.getElementById('complete-overlay');
 const completeStats   = document.getElementById('complete-stats');
 const completeBtn     = document.getElementById('complete-btn');
-
-const quoteText           = document.getElementById('quote-text');
-const quoteAuthor         = document.getElementById('quote-author');
-const completeQuoteText   = document.getElementById('complete-quote-text');
-const completeQuoteAuthor = document.getElementById('complete-quote-author');
-
-function showIdleQuote() {
-    const q = drawQuote();
-    const quoteBox = document.getElementById('quote-box');
-    quoteBox.style.opacity = '0';
-    setTimeout(() => {
-        quoteText.textContent   = `”${q.t}”`;
-        quoteAuthor.textContent = q.a;
-        quoteBox.style.opacity  = '1';
-    }, 600);
-}
 
 /* Arc init */
 arcProgress.style.strokeDasharray  = ARC_CIRCUMFERENCE;
@@ -1318,10 +1104,6 @@ function showCompleteOverlay() {
             `<strong>${totalMins} min</strong> of ${patternLabel}<br>` +
             `~${breaths} breath cycles completed`;
 
-        const q = drawQuote();
-        completeQuoteText.textContent   = `“${q.t}”`;
-        completeQuoteAuthor.textContent = q.a;
-
         completeOverlay.classList.add('visible');
         requestAnimationFrame(() => {
             requestAnimationFrame(() => completeOverlay.classList.add('shown'));
@@ -1337,7 +1119,6 @@ completeBtn.addEventListener('click', () => {
     completeOverlay.classList.remove('shown');
     setTimeout(() => completeOverlay.classList.remove('visible'), 600);
     resetSession();
-    showIdleQuote(); // a fresh thought greets the next session
 });
 
 /* ═══════════════════════════════════════════════════════════════
@@ -1437,7 +1218,6 @@ function resetSession() {
     setPhaseColor('exhale'); // neutral teal at rest
 
     if (pacerSwellGain) pacerSwellGain.gain.setTargetAtTime(0, audioCtx.currentTime, 0.1);
-    showIdleQuote();
 }
 
 startBtn.addEventListener('click', () => { startSession(); updateQuickPauseBtn(); });
@@ -1497,7 +1277,6 @@ window.addEventListener('pageshow', (e) => {
 ═══════════════════════════════════════════════════════════════ */
 timerDisplay.textContent = formatTime(sessionState.totalTimeRemaining);
 setPhaseColor('exhale');
-showIdleQuote();
 </script>
 
 <script>
