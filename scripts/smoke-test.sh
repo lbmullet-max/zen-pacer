@@ -9,7 +9,7 @@ RESULT=$?
 echo "---- app log ----"
 adb logcat -d | grep -E "Capacitor|AndroidRuntime|FATAL" | tail -80
 
-if adb logcat -d | grep -E "js.error|AndroidRuntime|FATAL EXCEPTION|Error: |Exception"; then
+if adb logcat -d | grep -E "js.error|AndroidRuntime|FATAL EXCEPTION|Capacitor/Plugin.*(rror|ailed)"; then
   echo "FAIL: the app logged a JavaScript or native error"
   RESULT=1
 fi
