@@ -1,5 +1,8 @@
-const CACHE_NAME = 'breath-beautiful-v4';
-const ASSETS = ['/', '/index.html', '/icon.png', '/manifest.json'];
+const CACHE_NAME = 'breath-beautiful-v5';
+const ASSETS = [
+  '/', '/index.html', '/icon.png', '/manifest.json',
+  '/fonts/DMSans-variable.woff2', '/fonts/DMSerifDisplay-normal-400.woff2',
+];
 
 self.addEventListener('install', event => {
   self.skipWaiting();

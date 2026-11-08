@@ -1,0 +1,9 @@
+{
+  "appId": "com.zenpacer.app",
+  "appName": "Zen Pacer",
+  "webDir": "www",
+  "backgroundColor": "#0e1710",
+  "android": {
+    "allowMixedContent": false
+  }
+}
