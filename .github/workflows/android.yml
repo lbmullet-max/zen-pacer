@@ -56,10 +56,11 @@ jobs:
             --notes "Latest build of the Zen Pacer Android app. Download zen-pacer.apk and open it on your phone to install." \
             --target "$GITHUB_SHA"
 
-  # Boots the APK on an emulator and checks the app really runs (feature branches only).
+  # Boots the APK on an emulator and checks the app really runs.
+  # Manual only: Actions tab > Build Android APK > Run workflow.
   smoke-test:
     needs: apk
-    if: github.ref != 'refs/heads/main'
+    if: github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4

@@ -1,13 +1,14 @@
 # Zen Pacer
 
-A simple breathing pacer. It runs as a website (Netlify) and as an Android app (APK).
+A simple breathing pacer. It runs as a website and as an Android app (APK). The look is plain: light and dark themes that follow the phone's setting.
 
 ## Files
 
 - `index.html` – the whole app (this is the file you edit)
-- `fonts/`, `icon.png`, `manifest.json`, `sw.js` – fonts, icon and offline cache for the website
+- `icon.png`, `manifest.json`, `sw.js` – icon and offline cache for the website
 - `android/` – the Android app wrapper (made with [Capacitor](https://capacitorjs.com))
 - `scripts/build-web.js` – copies the website files into `www/`
+- `scripts/smoke-test.*` – optional emulator check (run it by hand from the Actions tab)
 - `.github/workflows/android.yml` – builds the APK automatically on GitHub
 
 ## Getting the APK
