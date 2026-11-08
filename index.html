@@ -6,17 +6,28 @@
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <meta name="mobile-web-app-capable" content="yes">
-    <meta name="theme-color" content="#ffffff" media="(prefers-color-scheme: light)">
-    <meta name="theme-color" content="#121212" media="(prefers-color-scheme: dark)">
+    <meta name="theme-color" content="#ffffff" id="meta-theme">
     <title>Breathing is Beautiful</title>
     <link rel="icon" type="image/png" href="icon.png">
     <link rel="apple-touch-icon" href="icon.png">
     <link rel="manifest" href="manifest.json">
 
+    <script>
+        // Pick light or dark before anything is drawn: your saved choice, otherwise the phone's setting.
+        (function () {
+            var t = null;
+            try { t = localStorage.getItem('zenPacerTheme'); } catch (e) {}
+            if (t !== 'light' && t !== 'dark') {
+                t = window.matchMedia && matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+            }
+            document.documentElement.setAttribute('data-theme', t);
+        })();
+    </script>
+
     <style>
-        /* ─── Light & dark themes (follows the phone's setting) ──────── */
+        /* ─── Light & dark themes (chosen in Settings) ───────────────── */
         :root {
-            color-scheme: light dark;
+            color-scheme: light;
             --bg: #ffffff;
             --surface: #f3f4f2;
             --text: #1d1f1d;
@@ -26,16 +37,15 @@
             --accent-text: #ffffff;
             --circle-scale: 1;
         }
-        @media (prefers-color-scheme: dark) {
-            :root {
-                --bg: #121212;
-                --surface: #1e1f1e;
-                --text: #ececec;
-                --muted: #9a9f9a;
-                --border: #353835;
-                --accent: #6fb38f;
-                --accent-text: #0d1a12;
-            }
+        :root[data-theme="dark"] {
+            color-scheme: dark;
+            --bg: #121212;
+            --surface: #1e1f1e;
+            --text: #ececec;
+            --muted: #9a9f9a;
+            --border: #353835;
+            --accent: #6fb38f;
+            --accent-text: #0d1a12;
         }
 
         /* ─── Reset & Base ────────────────────────────────────────────── */
@@ -198,12 +208,12 @@
         }
         button:active { opacity: 0.8; }
         button:disabled { opacity: 0.4; cursor: not-allowed; }
-        #pause-btn, #reset-btn, #toggle-settings-btn, #mini-reveal-btn, #quick-pause-btn {
+        #pause-btn, #reset-btn, #toggle-settings-btn, #mini-reveal-btn, #quick-pause-btn, #mini-reset-btn {
             background: transparent;
             color: var(--text);
             border-color: var(--border);
         }
-        #toggle-settings-btn, #mini-reveal-btn {
+        #toggle-settings-btn, #mini-reveal-btn, #mini-reset-btn {
             font-size: 0.8rem;
             font-weight: 400;
             padding: 5px 14px;
@@ -378,6 +388,7 @@
         <div id="session-top-row">
             <button id="mini-reveal-btn">⚙ Settings</button>
             <button id="quick-pause-btn">⏸ Pause</button>
+            <button id="mini-reset-btn">Reset</button>
         </div>
 
         <div id="settings-body">
@@ -407,6 +418,10 @@
                     <select id="sound-select">
                         <option value="chords">Resolving Chords</option>
                         <option value="mute">Mute</option>
+                    </select>
+                    <select id="theme-select" aria-label="Theme">
+                        <option value="light">Light</option>
+                        <option value="dark">Dark</option>
                     </select>
                 </div>
                 <div class="mixer-row">
@@ -543,6 +558,7 @@ const arcProgress     = document.getElementById('arc-progress');
 const patternSelect   = document.getElementById('pattern-select');
 const patternDesc     = document.getElementById('pattern-description');
 const soundSelect     = document.getElementById('sound-select');
+const themeSelect     = document.getElementById('theme-select');
 const minutesInput    = document.getElementById('minutes-input');
 const pacerVolSlider  = document.getElementById('pacer-vol-slider');
 
@@ -552,6 +568,7 @@ const resetBtn        = document.getElementById('reset-btn');
 const quickPauseBtn   = document.getElementById('quick-pause-btn');
 const toggleSettingsBtn = document.getElementById('toggle-settings-btn');
 const miniRevealBtn   = document.getElementById('mini-reveal-btn');
+const miniResetBtn    = document.getElementById('mini-reset-btn');
 const settingsBody    = document.getElementById('settings-body');
 
 const completeOverlay = document.getElementById('complete-overlay');
@@ -622,6 +639,23 @@ updatePatternDescription('4-6');
 ═══════════════════════════════════════════════════════════════ */
 // Inside the Android app, a small native plugin keeps the screen on.
 // In a normal browser we use the standard Screen Wake Lock API instead.
+/* ═══════════════════════════════════════════════════════════════
+   THEME (light / dark)
+═══════════════════════════════════════════════════════════════ */
+// In the Android app, a small native plugin also colours the area behind the status and navigation bars.
+const NativeTheme = (window.Capacitor && window.Capacitor.isNativePlatform && window.Capacitor.isNativePlatform()
+                     && window.Capacitor.Plugins && window.Capacitor.Plugins.AppTheme) || null;
+
+function applyTheme(theme, save) {
+    document.documentElement.setAttribute('data-theme', theme);
+    themeSelect.value = theme;
+    document.getElementById('meta-theme').setAttribute('content', theme === 'dark' ? '#121212' : '#ffffff');
+    if (NativeTheme) NativeTheme.set({ dark: theme === 'dark' }).catch(() => {});
+    if (save) { try { localStorage.setItem('zenPacerTheme', theme); } catch (e) {} }
+}
+themeSelect.addEventListener('change', () => applyTheme(themeSelect.value, true));
+applyTheme(document.documentElement.getAttribute('data-theme'), false);
+
 const NativeKeepAwake = (window.Capacitor && window.Capacitor.isNativePlatform && window.Capacitor.isNativePlatform()
                          && window.Capacitor.Plugins && window.Capacitor.Plugins.KeepAwake) || null;
 
@@ -1061,6 +1095,7 @@ function resetSession() {
 startBtn.addEventListener('click', () => { startSession(); updateQuickPauseBtn(); });
 pauseBtn.addEventListener('click', () => { pauseSession(); updateQuickPauseBtn(); });
 resetBtn.addEventListener('click', resetSession);
+miniResetBtn.addEventListener('click', resetSession);
 
 /* ═══════════════════════════════════════════════════════════════
    PATTERN SELECTION

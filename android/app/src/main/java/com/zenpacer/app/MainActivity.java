@@ -9,6 +9,7 @@ public class MainActivity extends BridgeActivity {
     @Override
     public void onCreate(Bundle savedInstanceState) {
         registerPlugin(KeepAwakePlugin.class);
+        registerPlugin(AppThemePlugin.class);
         super.onCreate(savedInstanceState);
         // Let the window's light/dark background show until the page paints (no white flash in dark mode)
         getBridge().getWebView().setBackgroundColor(Color.TRANSPARENT);

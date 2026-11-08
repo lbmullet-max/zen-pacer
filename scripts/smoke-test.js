@@ -44,7 +44,24 @@ async function withPage(fn) {
   try { return await fn(evaluate, target); } finally { ws.close(); await sleep(2500); }
 }
 
+// Close and reopen the app so we get a fresh process (and a fresh DevTools socket).
+async function launchApp() {
+  sh('adb shell input keyevent KEYCODE_HOME');   // backgrounding lets the WebView flush saved settings
+  await sleep(1500);
+  sh('adb shell am force-stop com.zenpacer.app');
+  sh('adb shell am start -n com.zenpacer.app/.MainActivity');
+  let pid = '';
+  for (let i = 0; i < 30 && !pid; i++) { await sleep(1000); pid = sh('adb shell pidof com.zenpacer.app || true').trim(); }
+  await sleep(6000);
+  sh(`adb forward tcp:9222 localabstract:webview_devtools_remote_${pid}`);
+  console.log('launched, pid', pid);
+}
+const THEME = "({ theme: document.documentElement.dataset.theme, dark: matchMedia('(prefers-color-scheme: dark)').matches, bg: getComputedStyle(document.body).backgroundColor, select: document.getElementById('theme-select').value })";
+
 (async () => {
+  sh('adb shell cmd uimode night no');
+  await launchApp();
+
   // Nothing attached yet: the screen should not be held.
   const baseline = screenHold();
   console.log('baseline ->', JSON.stringify(baseline));
@@ -54,24 +71,33 @@ async function withPage(fn) {
     console.log('target:', target.url);
     check('running inside Capacitor', await evaluate('!!(window.Capacitor && window.Capacitor.isNativePlatform())'));
     check('KeepAwake plugin visible to the page', await evaluate('!!(window.Capacitor.Plugins && window.Capacitor.Plugins.KeepAwake)'));
+    check('AppTheme plugin visible to the page', await evaluate('!!(window.Capacitor.Plugins && window.Capacitor.Plugins.AppTheme)'));
     check('service worker NOT registered', (await evaluate('navigator.serviceWorker.getRegistrations().then(r => r.length)')) === 0);
-    console.log('layout:', JSON.stringify(await evaluate(`(() => {
-      const r = document.getElementById('control-panel').getBoundingClientRect();
-      return { innerWidth, innerHeight, panelTop: Math.round(r.top), panelBottom: Math.round(r.bottom) };
-    })()`)));
-    const light = await evaluate("({ dark: matchMedia('(prefers-color-scheme: dark)').matches, bg: getComputedStyle(document.body).backgroundColor })");
-    check('light mode by default', !light.dark && light.bg === 'rgb(255, 255, 255)', JSON.stringify(light));
+    const t = await evaluate(THEME);
+    check('first launch matches a light phone', t.theme === 'light' && t.bg === 'rgb(255, 255, 255)' && t.select === 'light', JSON.stringify(t));
   });
 
-  // Flip the phone to dark mode; the app should follow.
+  // Phone switches to dark; with no saved choice the app should start dark.
   sh('adb shell cmd uimode night yes');
-  await sleep(3000);
+  await sleep(2000);
+  await launchApp();
   await withPage(async evaluate => {
-    const dark = await evaluate("({ dark: matchMedia('(prefers-color-scheme: dark)').matches, bg: getComputedStyle(document.body).backgroundColor })");
-    check('follows phone dark mode', dark.dark && dark.bg === 'rgb(18, 18, 18)', JSON.stringify(dark));
+    const t = await evaluate(THEME);
+    check('no saved choice: follows a dark phone', t.theme === 'dark' && t.bg === 'rgb(18, 18, 18)' && t.select === 'dark', JSON.stringify(t));
+    // Choose Light in the app's settings.
+    await evaluate("(() => { const s = document.getElementById('theme-select'); s.value = 'light'; s.dispatchEvent(new Event('change')); })()");
+    await sleep(500);
+    const t2 = await evaluate(THEME);
+    check('choosing Light switches the app', t2.theme === 'light' && t2.bg === 'rgb(255, 255, 255)', JSON.stringify(t2));
+  });
+
+  // Reopen with the phone still dark: the saved choice (Light) should win.
+  await launchApp();
+  await withPage(async evaluate => {
+    const t = await evaluate(THEME);
+    check('saved Light choice survives closing the app', t.theme === 'light' && t.bg === 'rgb(255, 255, 255)' && t.dark === true, JSON.stringify(t));
   });
   sh('adb shell cmd uimode night no');
-  await sleep(3000);
 
   // Start a session, then detach and see whether the screen is held awake.
   await withPage(async evaluate => {
@@ -83,7 +109,7 @@ async function withPage(fn) {
   console.log('during session ->', JSON.stringify(during));
   check('screen held awake during session', during.held);
 
-  // Pause, detach, and the screen should be released.
+  // Pause, detach, and the screen should be released. Then Reset from the in-session row.
   await withPage(async evaluate => {
     await evaluate("document.getElementById('quick-pause-btn').click()");
     await sleep(500);
@@ -91,6 +117,14 @@ async function withPage(fn) {
   const after = screenHold();
   console.log('after pause ->', JSON.stringify(after));
   check('screen released after pause', !after.held);
+
+  await withPage(async evaluate => {
+    check('Reset button visible while paused', await evaluate("getComputedStyle(document.getElementById('mini-reset-btn')).display !== 'none' && document.getElementById('mini-reset-btn').offsetWidth > 0"));
+    await evaluate("document.getElementById('mini-reset-btn').click()");
+    await sleep(500);
+    const r = await evaluate("({ instruction: document.getElementById('instruction').textContent.trim(), active: document.body.classList.contains('session-active') })");
+    check('Reset returns to the start screen', r.instruction === 'Ready to breathe' && r.active === false, JSON.stringify(r));
+  });
 
   process.exit(failed ? 1 : 0);
 })().catch(e => { console.error('FAIL: smoke test crashed:', e); process.exit(1); });
