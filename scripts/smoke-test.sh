@@ -14,7 +14,15 @@ if [ -z "$PID" ]; then
 fi
 echo "App running as pid $PID"
 
-adb logcat -d | grep -E "Capacitor|chromium|AndroidRuntime|FATAL" | tail -60
-
 adb forward tcp:9222 localabstract:webview_devtools_remote_$PID
 node scripts/smoke-test.js
+RESULT=$?
+
+echo "---- app log ----"
+adb logcat -d | grep -E "Capacitor|AndroidRuntime|FATAL" | tail -60
+
+if adb logcat -d | grep -E "js.error|AndroidRuntime|FATAL EXCEPTION"; then
+  echo "FAIL: the app logged a JavaScript or native error"
+  RESULT=1
+fi
+exit $RESULT

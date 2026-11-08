@@ -799,9 +799,8 @@ function setPhaseColor(type) {
 ═══════════════════════════════════════════════════════════════ */
 // Inside the Android app, a small native plugin keeps the screen on.
 // In a normal browser we use the standard Screen Wake Lock API instead.
-const NativeKeepAwake = (window.Capacitor && window.Capacitor.isNativePlatform && window.Capacitor.isNativePlatform())
-    ? window.Capacitor.registerPlugin('KeepAwake')
-    : null;
+const NativeKeepAwake = (window.Capacitor && window.Capacitor.isNativePlatform && window.Capacitor.isNativePlatform()
+                         && window.Capacitor.Plugins && window.Capacitor.Plugins.KeepAwake) || null;
 
 async function requestWakeLock() {
     if (NativeKeepAwake) {

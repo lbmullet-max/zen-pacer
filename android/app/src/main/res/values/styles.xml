@@ -13,6 +13,8 @@
         <item name="windowActionBar">false</item>
         <item name="windowNoTitle">true</item>
         <item name="android:background">@null</item>
+        <!-- Dark green behind the status bar and navigation bar -->
+        <item name="android:windowBackground">#0e1710</item>
     </style>
 
 

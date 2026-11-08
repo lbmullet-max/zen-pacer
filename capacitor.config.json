@@ -3,6 +3,11 @@
   "appName": "Zen Pacer",
   "webDir": "www",
   "backgroundColor": "#0e1710",
+  "plugins": {
+    "SystemBars": {
+      "style": "DARK"
+    }
+  },
   "android": {
     "allowMixedContent": false
   }
