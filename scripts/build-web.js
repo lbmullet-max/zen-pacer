@@ -13,6 +13,5 @@ fs.mkdirSync(out, { recursive: true });
 for (const file of ['index.html', 'icon.png', 'manifest.json', 'sw.js']) {
   fs.copyFileSync(path.join(root, file), path.join(out, file));
 }
-fs.cpSync(path.join(root, 'fonts'), path.join(out, 'fonts'), { recursive: true });
 
 console.log('Built web assets into www/');

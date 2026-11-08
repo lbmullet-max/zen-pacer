@@ -6,53 +6,40 @@
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <meta name="mobile-web-app-capable" content="yes">
-    <meta name="theme-color" content="#121c14" id="meta-theme">
+    <meta name="theme-color" content="#ffffff" media="(prefers-color-scheme: light)">
+    <meta name="theme-color" content="#121212" media="(prefers-color-scheme: dark)">
     <title>Breathing is Beautiful</title>
     <link rel="icon" type="image/png" href="icon.png">
     <link rel="apple-touch-icon" href="icon.png">
     <link rel="manifest" href="manifest.json">
 
     <style>
-        /* ─── Fonts (bundled so the app works offline) ───────────────── */
-        @font-face {
-            font-family: 'DM Sans';
-            font-style: normal;
-            font-weight: 300 500;
-            font-display: swap;
-            src: url('fonts/DMSans-variable.woff2') format('woff2');
-            unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+        /* ─── Light & dark themes (follows the phone's setting) ──────── */
+        :root {
+            color-scheme: light dark;
+            --bg: #ffffff;
+            --surface: #f3f4f2;
+            --text: #1d1f1d;
+            --muted: #656a65;
+            --border: #d8dbd7;
+            --accent: #3b7a5c;
+            --accent-text: #ffffff;
+            --circle-scale: 1;
         }
-        @font-face {
-            font-family: 'DM Serif Display';
-            font-style: normal;
-            font-weight: 400;
-            font-display: swap;
-            src: url('fonts/DMSerifDisplay-normal-400.woff2') format('woff2');
-            unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+        @media (prefers-color-scheme: dark) {
+            :root {
+                --bg: #121212;
+                --surface: #1e1f1e;
+                --text: #ececec;
+                --muted: #9a9f9a;
+                --border: #353835;
+                --accent: #6fb38f;
+                --accent-text: #0d1a12;
+            }
         }
 
         /* ─── Reset & Base ────────────────────────────────────────────── */
         *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-
-        :root {
-            --bg-dark: #0e1710;
-            --bg-mid:  #121c14;
-            --bg-radial: #1b2e1e;
-            --text-primary: #dce8df;
-            --text-muted: #7a9882;
-            --glass-bg: rgba(255,255,255,0.03);
-            --glass-border: rgba(255,255,255,0.08);
-
-            /* Phase colour tokens — updated by JS */
-            --phase-hue: 150;
-            --phase-sat: 40%;
-            --phase-light: 55%;
-            --phase-color: hsl(var(--phase-hue), var(--phase-sat), var(--phase-light));
-            --phase-glow:  hsla(var(--phase-hue), var(--phase-sat), var(--phase-light), 0.35);
-
-            --circle-scale: 1;
-            --ring-progress: 0;
-        }
 
         html, body {
             height: 100%;
@@ -65,32 +52,11 @@
             align-items: center;
             justify-content: center;
             min-height: 100vh;
-            color: var(--text-primary);
-            font-family: 'DM Sans', system-ui, sans-serif;
-            background: radial-gradient(ellipse at 50% 40%, var(--bg-radial) 0%, var(--bg-dark) 70%);
-            transition: background 1.8s ease;
-            overflow-y: auto;
+            padding-top: env(safe-area-inset-top, 0px);
+            background: var(--bg);
+            color: var(--text);
+            font-family: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
             overscroll-behavior-y: none;
-            position: relative;
-        }
-
-        /* ─── Background radial glow ──────────────────────────────────── */
-        #bg-glow {
-            position: fixed;
-            inset: 0;
-            pointer-events: none;
-            z-index: 0;
-            background: radial-gradient(
-                ellipse 60% 50% at 50% 55%,
-                var(--phase-glow) 0%,
-                transparent 70%
-            );
-            transition: background 1.5s ease;
-            opacity: 0;
-            transition: opacity 1.2s ease, background 1.8s ease;
-        }
-        body.session-active #bg-glow {
-            opacity: 1;
         }
 
         /* ─── Layout wrapper ─────────────────────────────────────────── */
@@ -101,56 +67,25 @@
             width: 100%;
             max-width: 460px;
             padding: 16px 16px 24px;
-            gap: 0;
-            position: relative;
-            z-index: 1;
         }
 
-        /* ─── Glass control panel ────────────────────────────────────── */
+        /* ─── Control panel ──────────────────────────────────────────── */
         #control-panel {
-            background: var(--glass-bg);
-            backdrop-filter: blur(14px);
-            -webkit-backdrop-filter: blur(14px);
-            border: 1px solid var(--glass-border);
-            border-radius: 20px;
-            padding: 12px 18px;
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 12px 16px;
             width: 100%;
             margin-bottom: 20px;
         }
 
-        /* Header row: title + toggle */
         #panel-header {
             display: flex;
             align-items: center;
-            justify-content: space-between;
             width: 100%;
-            gap: 10px;
         }
 
-        /* Collapsed state: only show mini-open button */
-        #mini-reveal-btn {
-            display: none;
-            background: transparent;
-            border: 1px solid rgba(139,169,151,0.25);
-            color: var(--text-muted);
-            font-size: 0.78rem;
-            padding: 5px 12px;
-            border-radius: 20px;
-            cursor: pointer;
-            transition: opacity 0.2s, border-color 0.2s;
-            white-space: nowrap;
-        }
-        #mini-reveal-btn:hover { border-color: rgba(139,169,151,0.55); }
-
-        body.session-active #panel-header { display: none; }
-        body.session-active #mini-reveal-btn {
-            display: inline-flex;
-            align-items: center;
-            gap: 5px;
-            margin-bottom: 0;
-        }
-
-        /* ─── Session quick controls (pause visible mid-session) ─────── */
+        /* Mid-session: only a Settings button and a Pause button */
         #session-top-row {
             display: none;
             gap: 8px;
@@ -158,32 +93,21 @@
             margin-bottom: 4px;
             align-items: center;
         }
-        body.session-active #session-top-row {
-            display: flex;
-        }
-        #quick-pause-btn {
-            flex: 1;
-            background: rgba(255,255,255,0.08);
-            color: var(--text-muted);
-            border: 1px solid rgba(255,255,255,0.12);
-            font-size: 0.85rem;
-            padding: 7px 14px;
-            border-radius: 20px;
-            font-weight: 400;
-        }
+        body.session-active #panel-header { display: none; }
+        body.session-active #session-top-row { display: flex; }
+        body.session-active .btn-row { display: none; }
+        #quick-pause-btn { flex: 1; }
         #quick-pause-btn.is-paused {
-            background: rgba(74,122,90,0.25);
-            color: var(--text-primary);
-            border-color: rgba(74,122,90,0.4);
+            background: var(--accent);
+            color: var(--accent-text);
+            border-color: var(--accent);
         }
 
         /* The collapsible settings body */
         #settings-body {
             overflow: hidden;
             max-height: 600px;
-            transition: max-height 0.45s cubic-bezier(0.4, 0, 0.2, 1),
-                        opacity 0.35s ease,
-                        margin-top 0.35s ease;
+            transition: max-height 0.3s ease, opacity 0.2s ease, margin-top 0.2s ease;
             margin-top: 10px;
             opacity: 1;
         }
@@ -198,7 +122,7 @@
             flex-direction: column;
             gap: 8px;
             padding-bottom: 10px;
-            border-bottom: 1px solid rgba(255,255,255,0.07);
+            border-bottom: 1px solid var(--border);
             margin-bottom: 10px;
         }
         .settings-section:last-child {
@@ -214,65 +138,79 @@
             flex-wrap: wrap;
             width: 100%;
         }
-
-        /* Pattern select with description */
-        #pattern-wrap { width: 100%; }
-        #pattern-select {
-            width: 100%;
+        .muted {
+            color: var(--muted);
+            font-size: 0.85rem;
+            white-space: nowrap;
         }
+
+        #pattern-wrap { width: 100%; }
+        #pattern-select { width: 100%; }
         #pattern-description {
             font-size: 0.75rem;
-            color: var(--text-muted);
+            color: var(--muted);
             margin-top: 4px;
             min-height: 1.1em;
-            font-style: italic;
-            letter-spacing: 0.2px;
         }
 
-        /* Styled form controls */
+        /* ─── Form controls ──────────────────────────────────────────── */
         select, input[type="number"] {
-            background: rgba(0,0,0,0.25);
-            color: var(--text-primary);
-            border: 1px solid rgba(255,255,255,0.12);
+            background: var(--bg);
+            color: var(--text);
+            border: 1px solid var(--border);
             padding: 7px 10px;
-            border-radius: 10px;
+            border-radius: 8px;
             font-size: 0.9rem;
-            font-family: 'DM Sans', sans-serif;
-            outline: none;
+            font-family: inherit;
             flex-grow: 1;
-            transition: border-color 0.2s;
-        }
-        select:focus, input[type="number"]:focus {
-            border-color: rgba(123,169,139,0.45);
         }
         input[type="number"] {
             width: 64px;
             text-align: center;
             flex-grow: 0;
         }
-        select option { background: #1a2e1e; }
-
-        .mixer-row {
-            display: flex;
-            gap: 16px;
-            width: 100%;
-        }
+        .mixer-row { display: flex; width: 100%; }
         .mixer-col {
             display: flex;
             flex-direction: column;
             align-items: center;
             gap: 4px;
             font-size: 0.78rem;
-            color: var(--text-muted);
+            color: var(--muted);
             flex: 1;
         }
         input[type="range"] {
             width: 100%;
-            accent-color: #7ba98b;
-            cursor: pointer;
+            accent-color: var(--accent);
         }
 
-        /* ─── Action buttons ─────────────────────────────────────────── */
+        /* ─── Buttons ────────────────────────────────────────────────── */
+        button {
+            padding: 10px 20px;
+            font-size: 0.95rem;
+            font-family: inherit;
+            font-weight: 500;
+            border: 1px solid var(--accent);
+            border-radius: 8px;
+            cursor: pointer;
+            background: var(--accent);
+            color: var(--accent-text);
+        }
+        button:active { opacity: 0.8; }
+        button:disabled { opacity: 0.4; cursor: not-allowed; }
+        #pause-btn, #reset-btn, #toggle-settings-btn, #mini-reveal-btn, #quick-pause-btn {
+            background: transparent;
+            color: var(--text);
+            border-color: var(--border);
+        }
+        #toggle-settings-btn, #mini-reveal-btn {
+            font-size: 0.8rem;
+            font-weight: 400;
+            padding: 5px 14px;
+            white-space: nowrap;
+        }
+        #quick-pause-btn { padding: 7px 14px; font-size: 0.85rem; font-weight: 400; }
+
         .btn-row {
             display: flex;
             gap: 10px;
@@ -280,65 +218,34 @@
             justify-content: center;
             margin-top: 8px;
             padding-top: 8px;
-            border-top: 1px solid rgba(255,255,255,0.07);
+            border-top: 1px solid var(--border);
         }
-        body.session-active .btn-row {
-            display: none;
-        }
-        button {
-            padding: 10px 22px;
-            font-size: 0.95rem;
-            font-family: 'DM Sans', sans-serif;
-            border: none;
-            border-radius: 10px;
-            cursor: pointer;
-            font-weight: 500;
-            transition: transform 0.1s, opacity 0.2s, background 0.2s;
-            background: #4a7a5a;
-            color: #e8f5ed;
-        }
-        button:active { transform: scale(0.96); }
-        button:disabled { opacity: 0.4; cursor: not-allowed; }
-        #pause-btn { background: rgba(255,255,255,0.08); color: var(--text-muted); border: 1px solid rgba(255,255,255,0.12); }
-        #reset-btn  { background: rgba(255,255,255,0.05); color: var(--text-muted); border: 1px solid rgba(255,255,255,0.1); }
 
-        /* ─── Timer & stats ──────────────────────────────────────────── */
+        /* ─── Timer, instruction, countdown ──────────────────────────── */
         #timer-display {
-            font-size: 2.2rem;
+            font-size: 2rem;
             font-weight: 300;
             letter-spacing: 2px;
             margin-top: 4px;
             font-variant-numeric: tabular-nums;
-            color: var(--text-primary);
-            font-family: 'DM Serif Display', serif;
         }
-        /* ─── Instruction label ──────────────────────────────────────── */
         #instruction {
-            font-family: 'DM Serif Display', serif;
-            font-size: 1.7rem;
-            font-weight: 400;
+            font-size: 1.6rem;
+            font-weight: 500;
             margin: 20px 0 8px;
             min-height: 2.2rem;
-            letter-spacing: 0.5px;
             text-align: center;
-            color: var(--phase-color);
-            transition: color 1.2s ease;
         }
-
-        /* Phase countdown inside the ring */
         #phase-countdown {
             font-size: 1.1rem;
-            font-weight: 300;
-            color: var(--text-muted);
+            color: var(--muted);
             margin-bottom: 16px;
-            letter-spacing: 1px;
             min-height: 1.5rem;
             text-align: center;
             font-variant-numeric: tabular-nums;
-            transition: opacity 0.4s;
         }
 
-        /* ─── Breathing circle + SVG arc ring ────────────────────────── */
+        /* ─── Breathing circle + progress ring ───────────────────────── */
         .pacer-container {
             width: 260px;
             height: 260px;
@@ -349,8 +256,6 @@
             flex-shrink: 0;
             margin-bottom: 10px;
         }
-
-        /* SVG arc sits behind the circle */
         #arc-svg {
             position: absolute;
             top: 0; left: 0;
@@ -358,52 +263,27 @@
             transform: rotate(-90deg);
             pointer-events: none;
         }
-
         #arc-track {
             fill: none;
-            stroke: rgba(255,255,255,0.06);
+            stroke: var(--border);
             stroke-width: 4;
         }
-
         #arc-progress {
             fill: none;
-            stroke: var(--phase-color);
+            stroke: var(--accent);
             stroke-width: 4;
             stroke-linecap: round;
-            transition: stroke 1.2s ease;
-            /* stroke-dasharray set by JS */
         }
-
         .circle {
             width: 108px;
             height: 108px;
             border-radius: 50%;
+            background: var(--accent);
             will-change: transform;
-            background: radial-gradient(circle at 38% 36%,
-                hsl(var(--phase-hue), calc(var(--phase-sat) + 10%), calc(var(--phase-light) + 12%)),
-                hsl(var(--phase-hue), var(--phase-sat), calc(var(--phase-light) - 18%))
-            );
-            box-shadow:
-                0 0 40px var(--phase-glow),
-                0 0 80px hsla(var(--phase-hue), var(--phase-sat), var(--phase-light), 0.12),
-                inset 0 0 24px rgba(255,255,255,0.15);
             transform: scale(var(--circle-scale));
-            transition:
-                background 1.2s ease,
-                box-shadow 1.2s ease,
-                transform 0.05s linear;
         }
 
-        /* Hold-phase pulsing ring animation */
-        @keyframes holdPulse {
-            0%, 100% { box-shadow: 0 0 40px var(--phase-glow), 0 0 80px hsla(var(--phase-hue), var(--phase-sat), var(--phase-light), 0.12), inset 0 0 24px rgba(255,255,255,0.15); }
-            50%        { box-shadow: 0 0 65px var(--phase-glow), 0 0 110px hsla(var(--phase-hue), var(--phase-sat), var(--phase-light), 0.22), inset 0 0 28px rgba(255,255,255,0.22); }
-        }
-        .circle.hold-pulse {
-            animation: holdPulse 2s ease-in-out infinite;
-        }
-
-        /* ─── Session Complete overlay ──────────────────────────────── */
+        /* ─── Session complete screen ────────────────────────────────── */
         #complete-overlay {
             display: none;
             position: fixed;
@@ -413,94 +293,61 @@
             justify-content: center;
             flex-direction: column;
             gap: 20px;
-            background: rgba(10, 20, 12, 0.92);
-            backdrop-filter: blur(20px);
-            -webkit-backdrop-filter: blur(20px);
+            background: var(--bg);
             text-align: center;
             padding: 40px 24px;
             opacity: 0;
-            transition: opacity 0.8s ease;
+            transition: opacity 0.5s ease;
         }
-        #complete-overlay.visible {
-            display: flex;
-        }
-        #complete-overlay.shown {
-            opacity: 1;
-        }
-
+        #complete-overlay.visible { display: flex; }
+        #complete-overlay.shown { opacity: 1; }
         #complete-title {
-            font-family: 'DM Serif Display', serif;
-            font-size: 2.2rem;
-            color: var(--text-primary);
+            font-size: 2rem;
+            font-weight: 500;
             line-height: 1.2;
         }
-        #complete-subtitle {
-            font-size: 1rem;
-            color: var(--text-muted);
-            letter-spacing: 0.5px;
-            max-width: 280px;
-            line-height: 1.6;
-        }
         #complete-stats {
-            font-size: 0.9rem;
-            color: var(--text-muted);
-            background: rgba(255,255,255,0.04);
-            border: 1px solid rgba(255,255,255,0.08);
-            border-radius: 14px;
-            padding: 14px 28px;
-            letter-spacing: 0.5px;
+            font-size: 0.95rem;
+            color: var(--muted);
             line-height: 1.8;
         }
         #complete-btn {
             margin-top: 8px;
-            padding: 13px 36px;
+            padding: 12px 32px;
             font-size: 1rem;
-            border-radius: 50px;
-            background: #4a7a5a;
         }
 
-        /* ─── Sheet drag handle (hidden on desktop) ─────────────────── */
-        #sheet-handle {
-            display: none;
-            width: 40px;
-            height: 4px;
-            background: rgba(255,255,255,0.22);
-            border-radius: 2px;
-            margin: 0 auto 10px;
-            flex-shrink: 0;
-        }
-
-        /* ─── Safe-area top: nothing clips under Android status bar ─── */
-        body {
-            padding-top: env(safe-area-inset-top, 0px);
-        }
-
-        /* ─── Mobile bottom-sheet layout ─────────────────────────────── */
+        /* ─── Mobile: controls become a bottom sheet ─────────────────── */
+        #sheet-handle { display: none; }
         @media (max-width: 640px) {
-            #sheet-handle { display: block; }
-
-            /* Lift panel out of normal flow so it can't push the circle off-screen */
+            #sheet-handle {
+                display: block;
+                width: 40px;
+                height: 4px;
+                background: var(--border);
+                border-radius: 2px;
+                margin: 0 auto 10px;
+            }
             #control-panel {
                 position: fixed;
                 bottom: 0;
                 left: 0;
                 right: 0;
                 max-width: 100%;
-                border-radius: 20px 20px 0 0;
+                border-width: 1px 0 0;
+                border-radius: 16px 16px 0 0;
                 margin-bottom: 0;
                 padding-bottom: calc(env(safe-area-inset-bottom, 0px) + 12px);
                 z-index: 50;
             }
-
-            /* Give the circle area clearance above the fixed panel */
+            /* Leave room above the fixed panel for the circle */
             #app {
                 max-width: 100%;
                 min-height: 100vh;
                 padding-bottom: 140px;
                 justify-content: center;
             }
-
-            /* Settings body scrolls internally, never grows the viewport */
+            /* Settings scroll inside the panel instead of growing it */
             #settings-body {
                 max-height: 42vh;
                 overflow-y: auto;
@@ -510,8 +357,6 @@
     </style>
 </head>
 <body>
-
-<div id="bg-glow"></div>
 
 <!-- Session complete overlay -->
 <div id="complete-overlay" role="dialog" aria-modal="true" aria-labelledby="complete-title">
@@ -526,7 +371,7 @@
     <div id="control-panel">
         <div id="sheet-handle" aria-hidden="true"></div>
         <div id="panel-header">
-            <button id="toggle-settings-btn" style="background:transparent;border:1px solid rgba(139,169,151,0.25);color:var(--text-muted);font-size:0.8rem;padding:5px 14px;border-radius:20px;font-weight:400;">Settings ↕</button>
+            <button id="toggle-settings-btn">Settings ↕</button>
         </div>
 
         <!-- Mid-session top row: settings reveal + pause -->
@@ -551,9 +396,9 @@
 
                 <!-- Session length -->
                 <div class="row">
-                    <label style="color:var(--text-muted);font-size:0.85rem;white-space:nowrap;">Session length:</label>
+                    <label class="muted">Session length:</label>
                     <input type="number" id="minutes-input" value="16" min="1" max="60">
-                    <span style="color:var(--text-muted);font-size:0.85rem;">min</span>
+                    <span class="muted">min</span>
                 </div>
             </div>
 
@@ -611,14 +456,6 @@ const EASE_POWER          = 2;
 const ARC_RADIUS          = 122;
 const ARC_CIRCUMFERENCE   = 2 * Math.PI * ARC_RADIUS;
 const COMPLETION_HOLD_SEC = 3;       // stillness before overlay
-/* Phase colour palette: [hue, sat%, light%] — one consistent theme
-   throughout, forest sage. Colour still shifts per breathing phase. */
-const PHASE_COLORS = {
-    inhale: { hue: 38,  sat: '65%', light: '60%' },
-    hold:   { hue: 200, sat: '30%', light: '62%' },
-    exhale: { hue: 155, sat: '42%', light: '52%' },
-};
-
 /* ═══════════════════════════════════════════════════════════════
    PATTERN LIBRARY
 ═══════════════════════════════════════════════════════════════ */
@@ -701,7 +538,6 @@ const circle          = document.getElementById('circle');
 const instructionEl   = document.getElementById('instruction');
 const phaseCountdown  = document.getElementById('phase-countdown');
 const timerDisplay    = document.getElementById('timer-display');
-const bgGlow          = document.getElementById('bg-glow');
 const arcProgress     = document.getElementById('arc-progress');
 
 const patternSelect   = document.getElementById('pattern-select');
@@ -780,19 +616,6 @@ function updatePatternDescription(key) {
     }
 }
 updatePatternDescription('4-6');
-
-/* ═══════════════════════════════════════════════════════════════
-   PHASE COLOUR SYSTEM
-═══════════════════════════════════════════════════════════════ */
-function setPhaseColor(type) {
-    const c = PHASE_COLORS[type] || PHASE_COLORS.exhale;
-    const root = document.documentElement;
-    root.style.setProperty('--phase-hue',   c.hue);
-    root.style.setProperty('--phase-sat',   c.sat);
-    root.style.setProperty('--phase-light', c.light);
-    root.style.setProperty('--phase-color', `hsl(${c.hue}, ${c.sat}, ${c.light})`);
-    root.style.setProperty('--phase-glow',  `hsla(${c.hue}, ${c.sat}, ${c.light}, 0.35)`);
-}
 
 /* ═══════════════════════════════════════════════════════════════
    WAKE LOCK
@@ -1056,14 +879,6 @@ function loop(timestamp) {
 
             triggerAudio(phase.type, phase.duration, phase.freq);
             instructionEl.textContent = phase.text;
-            setPhaseColor(phase.type);
-
-            // Hold-phase pulsing glow
-            if (phase.type === 'hold') {
-                circle.classList.add('hold-pulse');
-            } else {
-                circle.classList.remove('hold-pulse');
-            }
 
             sessionState.lastPhaseIndex = currentPhaseIdx;
             sessionState.phaseStartTime = t;
@@ -1234,13 +1049,11 @@ function resetSession() {
     openSettings();
 
     setCircleScale(1);
-    circle.classList.remove('hold-pulse');
     arcProgress.style.strokeDashoffset = ARC_CIRCUMFERENCE;
 
     timerDisplay.textContent   = formatTime(sessionState.totalTimeRemaining);
     instructionEl.textContent  = 'Ready to breathe';
     phaseCountdown.textContent = '';
-    setPhaseColor('exhale'); // neutral teal at rest
 
     if (pacerSwellGain) pacerSwellGain.gain.setTargetAtTime(0, audioCtx.currentTime, 0.1);
 }
@@ -1301,7 +1114,6 @@ window.addEventListener('pageshow', (e) => {
    INIT
 ═══════════════════════════════════════════════════════════════ */
 timerDisplay.textContent = formatTime(sessionState.totalTimeRemaining);
-setPhaseColor('exhale');
 </script>
 
 <script>

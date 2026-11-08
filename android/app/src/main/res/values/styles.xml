@@ -13,13 +13,13 @@
         <item name="windowActionBar">false</item>
         <item name="windowNoTitle">true</item>
         <item name="android:background">@null</item>
-        <!-- Dark green behind the status bar and navigation bar -->
-        <item name="android:windowBackground">#0e1710</item>
+        <!-- Behind the status bar and navigation bar (white in light mode, near-black in dark mode) -->
+        <item name="android:windowBackground">@color/app_background</item>
     </style>
 
 
     <style name="AppTheme.NoActionBarLaunch" parent="Theme.SplashScreen">
-        <item name="android:background">@drawable/splash</item>
-        <item name="windowSplashScreenBackground">#0e1710</item>
+        <item name="android:background">@color/app_background</item>
+        <item name="windowSplashScreenBackground">@color/app_background</item>
     </style>
 </resources>
