@@ -3,8 +3,14 @@
 const { execSync } = require('child_process');
 
 const sh = cmd => execSync(cmd, { encoding: 'utf8' });
-const holdingScreen = () =>
-  (sh('adb shell dumpsys window').split('\n').find(l => l.includes('mHoldingScreenWindow')) || '(no mHoldingScreenWindow line)').trim();
+// Is the app keeping the screen on? Android reports it two ways; look at both.
+const screenHold = () => {
+  const win = sh('adb shell dumpsys window').split('\n')
+    .filter(l => /HoldScreen|HoldingScreen|KEEP_SCREEN_ON/i.test(l)).map(l => l.trim());
+  const power = sh('adb shell dumpsys power').split('\n')
+    .filter(l => /WAKE_LOCK/.test(l) && /WindowManager/.test(l)).map(l => l.trim());
+  return { win, power, held: win.some(l => l.includes('com.zenpacer.app')) || power.length > 0 };
+};
 let failed = false;
 const check = (name, ok, detail = '') => {
   console.log(`${ok ? 'PASS' : 'FAIL'}: ${name} ${detail}`);
@@ -46,22 +52,21 @@ const sleep = ms => new Promise(r => setTimeout(r, ms));
              safeTop: getComputedStyle(document.documentElement).getPropertyValue('--safe-area-inset-top') };
   })()`)));
 
-  const before = holdingScreen();
-  console.log('before start ->', before);
-  check('screen not held before session', !before.includes('com.zenpacer.app'));
+  const before = screenHold();
+  console.log('before start ->', JSON.stringify(before));
 
   await evaluate("document.getElementById('start-btn').click()");
   await sleep(3000);
   check('session started', (await evaluate("document.getElementById('instruction').textContent.trim()")) === 'Inhale');
-  const during = holdingScreen();
-  console.log('during session ->', during);
-  check('screen held awake during session', during.includes('com.zenpacer.app'));
+  const during = screenHold();
+  console.log('during session ->', JSON.stringify(during));
+  check('screen held awake during session', during.held);
 
   await evaluate("document.getElementById('quick-pause-btn').click()");
   await sleep(1500);
-  const after = holdingScreen();
-  console.log('after pause ->', after);
-  check('screen released after pause', !after.includes('com.zenpacer.app'));
+  const after = screenHold();
+  console.log('after pause ->', JSON.stringify(after));
+  check('screen released after pause', !after.held);
 
   ws.close();
   process.exit(failed ? 1 : 0);
