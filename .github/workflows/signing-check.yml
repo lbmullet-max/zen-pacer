@@ -1,7 +1,9 @@
 name: Signing check (temporary)
 
 on:
-  workflow_dispatch:
+  push:
+    branches: ['claude/**']
+    paths: ['.github/workflows/signing-check.yml']
 
 jobs:
   check:
