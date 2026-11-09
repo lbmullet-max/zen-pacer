@@ -699,14 +699,20 @@ function startBackground() { if (NativeBackground) NativeBackground.start().catc
 function pausedBackground() { if (NativeBackground) NativeBackground.paused().catch(() => {}); }
 function stopBackground()  { if (NativeBackground) NativeBackground.stop().catch(() => {}); }
 
-// The notification's Pause/Resume and Stop buttons (also shown on the lock screen) come back as events
-if (NativeBackground) {
+// The notification's Pause/Resume and Stop buttons (also shown on the lock screen) come back as events.
+// Capacitor clears all event listeners whenever a page starts loading, so these must be registered
+// once loading has finished, not while the page is still starting up.
+function listenForNotificationButtons() {
     window.Capacitor.addListener('BackgroundSession', 'toggle', () => {
         if (!sessionState.hasStarted) return;
         if (sessionState.isRunning) pauseSession(); else startSession();
         updateQuickPauseBtn();
     });
     window.Capacitor.addListener('BackgroundSession', 'stop', () => resetSession());
+}
+if (NativeBackground) {
+    if (document.readyState === 'complete') listenForNotificationButtons();
+    else window.addEventListener('load', listenForNotificationButtons);
 }
 
 const NativeKeepAwake = (window.Capacitor && window.Capacitor.isNativePlatform && window.Capacitor.isNativePlatform()

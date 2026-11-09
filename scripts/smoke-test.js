@@ -250,7 +250,14 @@ const THEME = "({ theme: document.documentElement.dataset.theme, dark: matchMedi
   });
   const svcPaused = serviceState();
   console.log('service after Pause ->', JSON.stringify(svcPaused));
-  check('foreground service stops on pause', !svcPaused.foreground);
+  check('service stays after Pause so it can be resumed from the notification', svcPaused.foreground);
+  await withPage(async evaluate => {
+    await evaluate("document.getElementById('mini-reset-btn').click()");
+    await sleep(1500);
+  });
+  const svcReset = serviceState();
+  console.log('service after Reset ->', JSON.stringify(svcReset));
+  check('service stops on Reset', !svcReset.listed);
   sh('adb shell input keyevent KEYCODE_WAKEUP');
 
   process.exit(failed ? 1 : 0);
