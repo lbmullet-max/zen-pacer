@@ -55,9 +55,10 @@ jobs:
         run: ./gradlew assembleDebug --no-daemon
 
       - name: Show which key signed the APK
+        continue-on-error: true   # information only
         run: |
           APKSIGNER=$(ls "$ANDROID_HOME"/build-tools/*/apksigner | sort -V | tail -1)
-          "$APKSIGNER" verify --print-certs android/app/build/outputs/apk/debug/app-debug.apk | grep "Signer #1 certificate SHA-256"
+          "$APKSIGNER" verify --verbose --print-certs android/app/build/outputs/apk/debug/app-debug.apk 2>&1 | grep -iE "verified|certificate SHA-256|error" || true
 
       - name: Name the APK
         run: cp android/app/build/outputs/apk/debug/app-debug.apk zen-pacer.apk

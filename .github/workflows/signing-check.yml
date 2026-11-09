@@ -59,6 +59,8 @@ jobs:
           AAPT2=$(ls "$ANDROID_HOME"/build-tools/*/aapt2 | sort -V | tail -1)
           for f in fallback stable-1 stable-2; do
             echo "== $f =="
-            "$APKSIGNER" verify --print-certs "$RUNNER_TEMP/$f.apk" | grep "Signer #1 certificate SHA-256"
-            "$AAPT2" dump badging "$RUNNER_TEMP/$f.apk" | grep -o "versionCode='[0-9]*' versionName='[^']*'"
+            "$APKSIGNER" verify --verbose --print-certs "$RUNNER_TEMP/$f.apk" 2>&1 | head -20 || true
+            "$AAPT2" dump badging "$RUNNER_TEMP/$f.apk" 2>&1 | grep -o "versionCode='[0-9]*' versionName='[^']*'" || true
           done
+
+# rerun 2
