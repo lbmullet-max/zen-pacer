@@ -695,26 +695,35 @@ applyTheme(document.documentElement.getAttribute('data-theme'), false);
 // alive so the breathing audio carries on with the screen off or the app in the background.
 const NativeBackground = (window.Capacitor && window.Capacitor.isNativePlatform && window.Capacitor.isNativePlatform()
                           && window.Capacitor.Plugins && window.Capacitor.Plugins.BackgroundSession) || null;
-function startBackground() { if (NativeBackground) NativeBackground.start().catch(e => console.log('Background:', e)); }
-function pausedBackground() { if (NativeBackground) NativeBackground.paused().catch(() => {}); }
-function stopBackground()  { if (NativeBackground) NativeBackground.stop().catch(() => {}); }
-
 // The notification's Pause/Resume and Stop buttons (also shown on the lock screen) come back as events.
-// Capacitor clears all event listeners whenever a page starts loading, so these must be registered
-// once loading has finished, not while the page is still starting up.
+// Capacitor wipes every event listener whenever a page starts loading, which can land after our own
+// start-up code has run. So the listeners are (re)registered each time a session starts, long after
+// loading has settled, and again once the page has loaded.
+let notificationListeners = [];
 function listenForNotificationButtons() {
-    console.log('ZenPacer: registering notification button listeners');
-    window.Capacitor.addListener('BackgroundSession', 'toggle', () => {
-        if (!sessionState.hasStarted) return;
-        if (sessionState.isRunning) pauseSession(); else startSession();
-        updateQuickPauseBtn();
-    });
-    window.Capacitor.addListener('BackgroundSession', 'stop', () => resetSession());
+    if (!NativeBackground) return;
+    notificationListeners.forEach(handle => { try { handle.remove(); } catch (e) {} });
+    notificationListeners = [
+        window.Capacitor.addListener('BackgroundSession', 'toggle', () => {
+            if (!sessionState.hasStarted) return;
+            if (sessionState.isRunning) pauseSession(); else startSession();
+            updateQuickPauseBtn();
+        }),
+        window.Capacitor.addListener('BackgroundSession', 'stop', () => resetSession()),
+    ];
 }
 if (NativeBackground) {
     if (document.readyState === 'complete') listenForNotificationButtons();
     else window.addEventListener('load', listenForNotificationButtons);
 }
+
+function startBackground() {
+    if (!NativeBackground) return;
+    listenForNotificationButtons();
+    NativeBackground.start().catch(e => console.log('Background:', e));
+}
+function pausedBackground() { if (NativeBackground) NativeBackground.paused().catch(() => {}); }
+function stopBackground()  { if (NativeBackground) NativeBackground.stop().catch(() => {}); }
 
 const NativeKeepAwake = (window.Capacitor && window.Capacitor.isNativePlatform && window.Capacitor.isNativePlatform()
                          && window.Capacitor.Plugins && window.Capacitor.Plugins.KeepAwake) || null;
