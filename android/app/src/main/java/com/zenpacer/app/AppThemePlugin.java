@@ -19,7 +19,7 @@ import com.getcapacitor.annotation.CapacitorPlugin;
 public class AppThemePlugin extends Plugin {
 
     private static final int LIGHT_BACKGROUND = 0xFFFFFFFF;
-    private static final int DARK_BACKGROUND = 0xFF121212;
+    private static final int DARK_BACKGROUND = 0xFF000000;
 
     @PluginMethod
     public void set(PluginCall call) {

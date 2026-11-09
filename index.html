@@ -29,23 +29,23 @@
         :root {
             color-scheme: light;
             --bg: #ffffff;
-            --surface: #f3f4f2;
-            --text: #1d1f1d;
-            --muted: #656a65;
-            --border: #d8dbd7;
-            --accent: #3b7a5c;
+            --surface: #f2f2f2;
+            --text: #161616;
+            --muted: #666666;
+            --border: #d6d6d6;
+            --accent: #1a1a1a;
             --accent-text: #ffffff;
             --circle-scale: 1;
         }
         :root[data-theme="dark"] {
             color-scheme: dark;
-            --bg: #121212;
-            --surface: #1e1f1e;
-            --text: #ececec;
-            --muted: #9a9f9a;
-            --border: #353835;
-            --accent: #6fb38f;
-            --accent-text: #0d1a12;
+            --bg: #000000;
+            --surface: #161616;
+            --text: #eeeeee;
+            --muted: #9b9b9b;
+            --border: #2e2e2e;
+            --accent: #e8e8e8;
+            --accent-text: #000000;
         }
 
         /* ─── Reset & Base ────────────────────────────────────────────── */
@@ -522,16 +522,21 @@ const PATTERNS = {
 ═══════════════════════════════════════════════════════════════ */
 const sessionState = {
     isRunning:          false,
-    lastFrameTime:      0,
-    patternTime:        0,
+    hasStarted:         false,      // a session is under way (running or paused)
+    patternTime:        0,          // seconds into the repeating breathing pattern
     startingMinutes:    16,
     totalTimeRemaining: 16 * 60,
     currentPattern:     PATTERNS['4-6'].phases,
     currentPatternKey:  '4-6',
     lastPhaseIndex:     -1,
     animationFrameId:   null,
+    tickTimer:          null,
     breathCount:        0,
-    phaseStartTime:     0,
+    // While running, time is measured on the audio clock. It keeps ticking with the
+    // screen off, unlike requestAnimationFrame, which stops as soon as the page is hidden.
+    runStartAudio:      0,
+    patternTimeAtRun:   0,
+    remainingAtRun:     0,
 };
 
 /* ═══════════════════════════════════════════════════════════════
@@ -542,6 +547,8 @@ let pacerSwellGain  = null;
 let pacerVolGain    = null;
 let reverbNode      = null;   // shared generated-hall reverb (wet bus)
 let reverbSend      = null;
+let endBus          = null;   // end-of-session chime (skips the breathing swell)
+const activeOscillators = new Set();   // everything queued, so pause/reset can silence it
 let wakeLock        = null;
 let keepAliveOsc    = null;   // silent oscillator to keep audio alive on lock screen
 let keepAliveGain   = null;
@@ -649,12 +656,19 @@ const NativeTheme = (window.Capacitor && window.Capacitor.isNativePlatform && wi
 function applyTheme(theme, save) {
     document.documentElement.setAttribute('data-theme', theme);
     themeSelect.value = theme;
-    document.getElementById('meta-theme').setAttribute('content', theme === 'dark' ? '#121212' : '#ffffff');
+    document.getElementById('meta-theme').setAttribute('content', theme === 'dark' ? '#000000' : '#ffffff');
     if (NativeTheme) NativeTheme.set({ dark: theme === 'dark' }).catch(() => {});
     if (save) { try { localStorage.setItem('zenPacerTheme', theme); } catch (e) {} }
 }
 themeSelect.addEventListener('change', () => applyTheme(themeSelect.value, true));
 applyTheme(document.documentElement.getAttribute('data-theme'), false);
+
+// Inside the Android app, a foreground service (with a small notification) keeps the app
+// alive so the breathing audio carries on with the screen off or the app in the background.
+const NativeBackground = (window.Capacitor && window.Capacitor.isNativePlatform && window.Capacitor.isNativePlatform()
+                          && window.Capacitor.Plugins && window.Capacitor.Plugins.BackgroundSession) || null;
+function startBackground() { if (NativeBackground) NativeBackground.start().catch(e => console.log('Background:', e)); }
+function stopBackground()  { if (NativeBackground) NativeBackground.stop().catch(() => {}); }
 
 const NativeKeepAwake = (window.Capacitor && window.Capacitor.isNativePlatform && window.Capacitor.isNativePlatform()
                          && window.Capacitor.Plugins && window.Capacitor.Plugins.KeepAwake) || null;
@@ -733,6 +747,11 @@ function buildImpulse(duration, decay) {
 
 /* A "voice" = two gently detuned oscillators (chorus-like warmth).
    Returns the oscillators so callers can attach vibrato LFOs. */
+function trackOscillator(o) {
+    activeOscillators.add(o);
+    o.onended = () => activeOscillators.delete(o);
+}
+
 function makeVoice(freq, dest, when, stopAt, type = 'sine', detune = 4) {
     const oscs = [];
     [-detune, detune].forEach(cents => {
@@ -743,6 +762,7 @@ function makeVoice(freq, dest, when, stopAt, type = 'sine', detune = 4) {
         o.connect(dest);
         o.start(when);
         o.stop(stopAt);
+        trackOscillator(o);
         oscs.push(o);
     });
     return oscs;
@@ -766,6 +786,10 @@ function initAudio() {
         pacerSwellGain.connect(reverbNode);
         reverbNode.connect(reverbSend);
         reverbSend.connect(pacerVolGain);
+
+        endBus = audioCtx.createGain();
+        endBus.connect(pacerVolGain);
+        endBus.connect(reverbNode);
     }
     // Android Chrome suspends the context on screen-lock; always attempt resume
     if (audioCtx.state === 'suspended') audioCtx.resume().catch(() => {});
@@ -794,15 +818,15 @@ function attachVibrato(oscs, when, stopAt, cents = 2.5) {
     oscs.forEach(o => depth.connect(o.detune));
     lfo.start(when);
     lfo.stop(stopAt);
+    trackOscillator(lfo);
 }
 
-function triggerAudio(phaseType, duration, baseFreq) {
-    if (soundSelect.value === 'mute' || !audioCtx || !pacerSwellGain) return;
-    if (audioCtx.state === 'suspended') audioCtx.resume();
+/* One breathing cue: a soft chord that blooms note by note. `when` is on the audio clock. */
+function playChord(phaseType, when, duration, dest) {
+    if (soundSelect.value === 'mute' || !audioCtx) return;
 
-    const now = audioCtx.currentTime;
     const gap = 0.15;
-    const end = now + duration - gap;
+    const end = when + duration - gap;
 
     const freqs = phaseType === 'inhale'
         ? [174.61, 261.63, 349.23, 440.00]
@@ -811,10 +835,10 @@ function triggerAudio(phaseType, duration, baseFreq) {
         : [196.00, 293.66, 392.00, 493.88];
     const filter = audioCtx.createBiquadFilter();
     filter.type = 'lowpass'; filter.frequency.value = 1800; filter.Q.value = 0.3;
-    filter.connect(pacerSwellGain);
+    filter.connect(dest);
     // Notes bloom one after another, like fingers settling on strings
     freqs.forEach((f, i) => {
-        const t0 = now + i * 0.22;
+        const t0 = when + i * 0.22;
         if (t0 >= end - 0.3) return;
         const g = audioCtx.createGain();
         const peak = (0.55 / freqs.length) * (1 - i * 0.08);
@@ -825,9 +849,8 @@ function triggerAudio(phaseType, duration, baseFreq) {
     });
 }
 
-function playCompletionTone() {
-    initAudio();
-    const now = audioCtx.currentTime;
+function playCompletionTone(when) {
+    const now = when === undefined ? audioCtx.currentTime : when;
     const freqs = [261.63, 329.63, 392.00, 523.25];
     const gain = audioCtx.createGain();
     gain.gain.setValueAtTime(0, now);
@@ -845,6 +868,82 @@ function playCompletionTone() {
 }
 
 /* ═══════════════════════════════════════════════════════════════
+   QUEUEING THE SESSION'S AUDIO AHEAD OF TIME
+   Notes are queued on the audio clock a few minutes in advance and topped up
+   every second. The audio thread plays them even when the screen is off and
+   the page is hidden, when timers and animation frames are throttled or paused.
+═══════════════════════════════════════════════════════════════ */
+const SCHEDULE_AHEAD_SEC = 240;
+let scheduleAheadSec = SCHEDULE_AHEAD_SEC;
+const queue = { phaseIndex: 0, phaseTime: 0, endTime: 0, endQueued: false, phasesQueued: 0 };
+
+// Which phase of the repeating pattern is at `patternTime`, and how far into it we are.
+function phaseAt(patternTime) {
+    const phases = sessionState.currentPattern;
+    const cycle  = phases.reduce((s, p) => s + p.duration, 0);
+    const t = patternTime % cycle;
+    let acc = 0;
+    for (let i = 0; i < phases.length; i++) {
+        if (t < acc + phases[i].duration) return { index: i, offset: t - acc, cycle };
+        acc += phases[i].duration;
+    }
+    return { index: 0, offset: 0, cycle };
+}
+
+function queuePhase(phase, when) {
+    if (soundSelect.value === 'mute') return;
+    // Volume swell: rises through an inhale, falls through an exhale, steady on holds
+    let from, to;
+    if (phase.type === 'inhale')      { from = 0.15; to = 1.0; }
+    else if (phase.type === 'exhale') { from = 1.0;  to = 0.15; }
+    else { from = to = (phase.holdScale === CIRCLE_HOLD_IN_SCALE ? 1.0 : 0.15); }
+    const swell = pacerSwellGain.gain;
+    swell.setValueAtTime(from, when);
+    swell.linearRampToValueAtTime(to, when + phase.duration);
+    playChord(phase.type, when, phase.duration, pacerSwellGain);
+}
+
+function queueEnd(when) {
+    queue.endQueued = true;
+    playChord('inhale', when, 3, endBus);                       // soft closing breath
+    playCompletionTone(when + COMPLETION_HOLD_SEC);             // then the chime
+}
+
+function scheduleAudio() {
+    if (!sessionState.isRunning || !audioCtx) return;
+    const now     = audioCtx.currentTime;
+    const horizon = now + scheduleAheadSec;
+    const phases  = sessionState.currentPattern;
+    while (queue.phaseTime < horizon && queue.phaseTime < queue.endTime) {
+        const phase = phases[queue.phaseIndex];
+        // If we've fallen well behind, skip silently rather than playing a burst of old notes
+        if (queue.phaseTime >= now - 0.3) queuePhase(phase, Math.max(queue.phaseTime, now));
+        queue.phaseTime += phase.duration;
+        queue.phaseIndex = (queue.phaseIndex + 1) % phases.length;
+        queue.phasesQueued++;
+    }
+    if (!queue.endQueued && queue.endTime < horizon) queueEnd(queue.endTime);
+}
+
+// Pause / reset: fade out and drop everything that was queued.
+function cancelQueuedAudio() {
+    if (!audioCtx) return;
+    const t = audioCtx.currentTime;
+    pacerSwellGain.gain.cancelScheduledValues(t);
+    pacerSwellGain.gain.setTargetAtTime(0, t, 0.08);
+    activeOscillators.forEach(o => { try { o.stop(t + 0.5); } catch (e) {} });
+    activeOscillators.clear();
+}
+
+// Test hook: lets the emulator test see that queueing carries on with the screen off
+window.zenDebug = {
+    get phasesQueued() { return queue.phasesQueued; },
+    get audioState() { return audioCtx ? audioCtx.state : 'none'; },
+    get remaining() { syncClock(); return sessionState.totalTimeRemaining; },
+    setAheadSeconds(sec) { scheduleAheadSec = sec; },
+};
+
+/* ═══════════════════════════════════════════════════════════════
    UTILITY
 ═══════════════════════════════════════════════════════════════ */
 function easeInOut(t) { return t < 0.5 ? 2*t*t : -1 + (4 - 2*t)*t; }
@@ -857,103 +956,89 @@ function formatTime(sec) {
 
 
 /* ═══════════════════════════════════════════════════════════════
-   ANIMATION LOOP
+   SESSION CLOCK + DRAWING
 ═══════════════════════════════════════════════════════════════ */
-function loop(timestamp) {
-    if (!sessionState.lastFrameTime) sessionState.lastFrameTime = timestamp;
-    const dt = Math.min((timestamp - sessionState.lastFrameTime) / 1000, 0.1); // cap at 100ms
-    sessionState.lastFrameTime = timestamp;
+function syncClock() {
+    if (!sessionState.isRunning) return;
+    const elapsed = Math.max(0, audioCtx.currentTime - sessionState.runStartAudio);
+    sessionState.patternTime        = sessionState.patternTimeAtRun + elapsed;
+    sessionState.totalTimeRemaining = sessionState.remainingAtRun - elapsed;
+}
 
-    if (sessionState.isRunning) {
-        sessionState.totalTimeRemaining -= dt;
+// Runs every animation frame while the screen is on AND once a second from a timer,
+// so the session keeps counting, queueing audio and finishing with the screen off.
+function tick() {
+    if (!sessionState.isRunning) return;
+    syncClock();
+    if (sessionState.totalTimeRemaining <= 0) { finishSession(); return; }
+    scheduleAudio();
+}
 
-        /* ── Session end ── */
-        if (sessionState.totalTimeRemaining <= 0) {
-            sessionState.totalTimeRemaining = 0;
-            sessionState.isRunning = false;
-            cancelAnimationFrame(sessionState.animationFrameId);
-            releaseWakeLock();
-            stopKeepAlive();
-            updateMediaSession('none');
-            triggerAudio('inhale', 3, 523.25);
-            setCircleScale(1);
-            arcProgress.style.strokeDashoffset = ARC_CIRCUMFERENCE;
-            instructionEl.textContent  = '';
-            phaseCountdown.textContent = '';
-            showCompleteOverlay();
-            return;
-        }
+function render() {
+    timerDisplay.textContent = formatTime(sessionState.totalTimeRemaining);
 
-        /* ── Timer ── */
-        timerDisplay.textContent = formatTime(sessionState.totalTimeRemaining);
+    const phases = sessionState.currentPattern;
+    const at     = phaseAt(sessionState.patternTime);
+    const phase  = phases[at.index];
 
-        /* ── Pattern progress ── */
-        sessionState.patternTime += dt;
-        const phases       = sessionState.currentPattern;
-        const cycleDuration = phases.reduce((s, p) => s + p.duration, 0);
-        const t            = sessionState.patternTime % cycleDuration;
-
-        let accumulated     = 0;
-        let currentPhaseIdx = 0;
-        for (let i = 0; i < phases.length; i++) {
-            if (t >= accumulated && t < accumulated + phases[i].duration) {
-                currentPhaseIdx = i; break;
-            }
-            accumulated += phases[i].duration;
-        }
-
-        /* ── Phase transition ── */
-        if (currentPhaseIdx !== sessionState.lastPhaseIndex) {
-            const phase = phases[currentPhaseIdx];
-
-            // Count breath completions (each full inhale = one breath)
-            if (phase.type === 'inhale' && sessionState.lastPhaseIndex !== -1) {
-                sessionState.breathCount++;
-            }
-
-            triggerAudio(phase.type, phase.duration, phase.freq);
-            instructionEl.textContent = phase.text;
-
-            sessionState.lastPhaseIndex = currentPhaseIdx;
-            sessionState.phaseStartTime = t;
-        }
-
-        /* ── Per-frame visuals ── */
-        const phase     = phases[currentPhaseIdx];
-        const phaseTime = t - accumulated;
-        const progress  = phaseTime / phase.duration;
-        const eased     = easeInOut(progress);
-
-        // Circle scale
-        let scale = CIRCLE_MIN_SCALE;
-        if (phase.type === 'inhale') {
-            scale = CIRCLE_MIN_SCALE + (CIRCLE_MAX_SCALE - CIRCLE_MIN_SCALE) * eased;
-        } else if (phase.type === 'exhale') {
-            scale = CIRCLE_MAX_SCALE - (CIRCLE_MAX_SCALE - CIRCLE_MIN_SCALE) * eased;
-        } else {
-            scale = phase.holdScale !== undefined ? phase.holdScale : CIRCLE_MIN_SCALE;
-        }
-        setCircleScale(scale);
-
-        // Arc ring — depletes over the phase duration
-        const arcFraction = 1 - progress; // 1 = full, 0 = empty
-        arcProgress.style.strokeDashoffset = ARC_CIRCUMFERENCE * (1 - arcFraction);
-
-        // Phase countdown (ceiling so "5" shows for full second)
-        const secsLeft = Math.ceil(phase.duration * (1 - progress));
-        phaseCountdown.textContent = secsLeft > 0 ? secsLeft : '';
-
-        // Volume swell
-        if (pacerSwellGain) {
-            let swell = 1.0;
-            if (phase.type === 'inhale') swell = 0.15 + 0.85 * progress;
-            else if (phase.type === 'exhale') swell = 1.0 - 0.85 * progress;
-            else swell = phase.holdScale === CIRCLE_HOLD_IN_SCALE ? 1.0 : 0.15;
-            pacerSwellGain.gain.setTargetAtTime(swell, audioCtx.currentTime, 0.05);
-        }
+    if (at.index !== sessionState.lastPhaseIndex) {
+        instructionEl.textContent = phase.text;
+        sessionState.lastPhaseIndex = at.index;
     }
 
-    sessionState.animationFrameId = requestAnimationFrame(loop);
+    const progress = at.offset / phase.duration;
+    const eased    = easeInOut(progress);
+
+    // Circle scale
+    let scale = CIRCLE_MIN_SCALE;
+    if (phase.type === 'inhale') {
+        scale = CIRCLE_MIN_SCALE + (CIRCLE_MAX_SCALE - CIRCLE_MIN_SCALE) * eased;
+    } else if (phase.type === 'exhale') {
+        scale = CIRCLE_MAX_SCALE - (CIRCLE_MAX_SCALE - CIRCLE_MIN_SCALE) * eased;
+    } else {
+        scale = phase.holdScale !== undefined ? phase.holdScale : CIRCLE_MIN_SCALE;
+    }
+    setCircleScale(scale);
+
+    // Progress ring: depletes over the phase
+    arcProgress.style.strokeDashoffset = ARC_CIRCUMFERENCE * progress;
+
+    // Phase countdown (ceiling so "5" shows for a full second)
+    const secsLeft = Math.ceil(phase.duration * (1 - progress));
+    phaseCountdown.textContent = secsLeft > 0 ? secsLeft : '';
+}
+
+function loop() {
+    tick();
+    if (sessionState.isRunning) {
+        render();
+        sessionState.animationFrameId = requestAnimationFrame(loop);
+    }
+}
+
+function stopSessionTimers() {
+    clearInterval(sessionState.tickTimer);
+    sessionState.tickTimer = null;
+    cancelAnimationFrame(sessionState.animationFrameId);
+}
+
+function finishSession() {
+    sessionState.totalTimeRemaining = 0;
+    sessionState.isRunning = false;
+    stopSessionTimers();
+    if (!queue.endQueued) queueEnd(Math.max(queue.endTime, audioCtx.currentTime));
+    sessionState.breathCount = Math.round(sessionState.startingMinutes * 60 / phaseAt(0).cycle);
+    releaseWakeLock();
+    updateMediaSession('none');
+    setCircleScale(1);
+    arcProgress.style.strokeDashoffset = ARC_CIRCUMFERENCE;
+    timerDisplay.textContent   = formatTime(0);
+    instructionEl.textContent  = '';
+    phaseCountdown.textContent = '';
+    showCompleteOverlay();
+    // Keep the background service and silent keep-alive until the closing chime has finished
+    setTimeout(() => { if (!sessionState.isRunning) { stopKeepAlive(); stopBackground(); } },
+               (COMPLETION_HOLD_SEC + 6) * 1000);
 }
 
 function setCircleScale(s) {
@@ -967,8 +1052,6 @@ function setCircleScale(s) {
 function showCompleteOverlay() {
     // A few seconds of stillness first
     setTimeout(() => {
-        playCompletionTone();
-
         const patternLabel = patternSelect.options[patternSelect.selectedIndex].text;
 
         const totalMins   = Math.round(sessionState.startingMinutes);
@@ -1025,9 +1108,21 @@ function startSession() {
     requestWakeLock();
     setupMediaSession();
     startKeepAlive();
+    startBackground();
+
+    if (!sessionState.hasStarted) {
+        sessionState.hasStarted         = true;
+        sessionState.startingMinutes    = parseInt(minutesInput.value) || 16;
+        sessionState.totalTimeRemaining = sessionState.startingMinutes * 60;
+        sessionState.patternTime        = 0;
+    } else {
+        // Resuming: begin again from the start of the phase we paused in
+        const at = phaseAt(sessionState.patternTime);
+        sessionState.patternTime -= at.offset;
+    }
 
     sessionState.isRunning = true;
-    sessionState.lastFrameTime = 0;
+    sessionState.lastPhaseIndex = -1;
     setUiState('running');
 
     // Collapse settings, show session top row
@@ -1041,24 +1136,38 @@ function startSession() {
     unlock.connect(ug); ug.connect(pacerSwellGain);
     unlock.start(); unlock.stop(audioCtx.currentTime + 0.1);
 
-    if (sessionState.patternTime === 0) {
-        sessionState.startingMinutes  = parseInt(minutesInput.value) || 16;
-        sessionState.totalTimeRemaining = sessionState.startingMinutes * 60;
-    }
+    // Set the session clock and queue the first stretch of audio
+    const now = audioCtx.currentTime;
+    sessionState.runStartAudio    = now + 0.15;
+    sessionState.patternTimeAtRun = sessionState.patternTime;
+    sessionState.remainingAtRun   = sessionState.totalTimeRemaining;
+    pacerSwellGain.gain.cancelScheduledValues(now);
+    pacerSwellGain.gain.setValueAtTime(0, now);
+    queue.phaseIndex   = phaseAt(sessionState.patternTime).index;
+    queue.phaseTime    = sessionState.runStartAudio;
+    queue.endTime      = sessionState.runStartAudio + sessionState.totalTimeRemaining;
+    queue.endQueued    = false;
+    queue.phasesQueued = 0;
+    scheduleAudio();
 
-    pacerSwellGain.gain.setTargetAtTime(1, audioCtx.currentTime, 0.05);
     updateMediaSession('playing');
+    clearInterval(sessionState.tickTimer);
+    sessionState.tickTimer = setInterval(tick, 1000);
     sessionState.animationFrameId = requestAnimationFrame(loop);
 }
 
 function pauseSession() {
+    if (!sessionState.isRunning) return;
+    syncClock();
     sessionState.isRunning = false;
-    cancelAnimationFrame(sessionState.animationFrameId);
+    stopSessionTimers();
+    cancelQueuedAudio();
     releaseWakeLock();
+    stopBackground();
     setUiState('paused');
     instructionEl.textContent  = 'Paused';
     phaseCountdown.textContent = '';
-    if (pacerSwellGain) pacerSwellGain.gain.setTargetAtTime(0, audioCtx.currentTime, 0.1);
+    timerDisplay.textContent   = formatTime(Math.max(0, sessionState.totalTimeRemaining));
     updateMediaSession('paused');
     updateQuickPauseBtn();
     // Keep keepAlive running so audio context stays warm for resume
@@ -1066,16 +1175,18 @@ function pauseSession() {
 
 function resetSession() {
     sessionState.isRunning          = false;
+    sessionState.hasStarted         = false;
     sessionState.patternTime        = 0;
-    sessionState.lastFrameTime      = 0;
     sessionState.lastPhaseIndex     = -1;
     sessionState.breathCount        = 0;
     sessionState.startingMinutes    = parseInt(minutesInput.value) || 16;
     sessionState.totalTimeRemaining = sessionState.startingMinutes * 60;
 
-    cancelAnimationFrame(sessionState.animationFrameId);
+    stopSessionTimers();
+    cancelQueuedAudio();
     releaseWakeLock();
     stopKeepAlive();
+    stopBackground();
     updateMediaSession('none');
     setUiState('idle');
 
@@ -1088,8 +1199,6 @@ function resetSession() {
     timerDisplay.textContent   = formatTime(sessionState.totalTimeRemaining);
     instructionEl.textContent  = 'Ready to breathe';
     phaseCountdown.textContent = '';
-
-    if (pacerSwellGain) pacerSwellGain.gain.setTargetAtTime(0, audioCtx.currentTime, 0.1);
 }
 
 startBtn.addEventListener('click', () => { startSession(); updateQuickPauseBtn(); });
@@ -1130,6 +1239,8 @@ function restoreAudioAndLock() {
         // Wake lock is released automatically when the page hides; re-request it
         requestWakeLock();
         updateMediaSession('playing');
+        tick();      // catch the clock up and queue any audio that's due
+        render();
     }
 }
 

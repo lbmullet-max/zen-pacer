@@ -22,6 +22,12 @@ const screenHold = () => {
   return { win, power, held: win.some(l => l.includes('com.zenpacer.app')) || power.some(l => l.includes('com.zenpacer.app')) };
 };
 
+// Is the breathing-session service running as a foreground service (the thing that keeps audio alive)?
+const serviceState = () => {
+  const out = sh('adb shell dumpsys activity services com.zenpacer.app');
+  return { listed: out.includes('SessionService'), foreground: /isForeground=true/.test(out) };
+};
+
 async function withPage(fn) {
   const targets = await (await fetch('http://localhost:9222/json')).json();
   const target = targets.find(t => t.type === 'page');
@@ -83,7 +89,7 @@ const THEME = "({ theme: document.documentElement.dataset.theme, dark: matchMedi
   await launchApp();
   await withPage(async evaluate => {
     const t = await evaluate(THEME);
-    check('no saved choice: follows a dark phone', t.theme === 'dark' && t.bg === 'rgb(18, 18, 18)' && t.select === 'dark', JSON.stringify(t));
+    check('no saved choice: follows a dark phone', t.theme === 'dark' && t.bg === 'rgb(0, 0, 0)' && t.select === 'dark', JSON.stringify(t));
     // Choose Light in the app's settings.
     await evaluate("(() => { const s = document.getElementById('theme-select'); s.value = 'light'; s.dispatchEvent(new Event('change')); })()");
     await sleep(500);
@@ -125,6 +131,51 @@ const THEME = "({ theme: document.documentElement.dataset.theme, dark: matchMedi
     const r = await evaluate("({ instruction: document.getElementById('instruction').textContent.trim(), active: document.body.classList.contains('session-active') })");
     check('Reset returns to the start screen', r.instruction === 'Ready to breathe' && r.active === false, JSON.stringify(r));
   });
+
+  // ---- Screen off: the session must keep going ----
+  sh('adb shell pm grant com.zenpacer.app android.permission.POST_NOTIFICATIONS');
+  await launchApp();
+  const SESSION_MIN = 3;
+  let startWall = 0;
+  await withPage(async evaluate => {
+    await evaluate(`(() => { const m = document.getElementById('minutes-input'); m.value = ${SESSION_MIN}; m.dispatchEvent(new Event('change')); zenDebug.setAheadSeconds(15); })()`);
+    startWall = Date.now();
+    await evaluate("document.getElementById('start-btn').click()");
+    await sleep(1500);
+  });
+  const svcOn = serviceState();
+  console.log('service after Start ->', JSON.stringify(svcOn));
+  check('foreground service running during a session', svcOn.foreground);
+
+  sh('adb shell input keyevent KEYCODE_SLEEP');
+  await sleep(3000);
+  const wake = sh('adb shell dumpsys power').split('\n').find(l => /mWakefulness=/.test(l)) || '';
+  console.log('power ->', wake.trim());
+  check('screen is really off', /Asleep|Dozing/.test(wake), wake.trim());
+
+  await sleep(65000);   // a minute+ with the screen off: far longer than the 15 s the audio was queued ahead
+  const svcOff = serviceState();
+  console.log('service with screen off ->', JSON.stringify(svcOff));
+  check('foreground service still running with screen off', svcOff.foreground);
+
+  await withPage(async evaluate => {
+    const elapsed = (Date.now() - startWall) / 1000;
+    const remaining = await evaluate('zenDebug.remaining');
+    const queued = await evaluate('zenDebug.phasesQueued');
+    const audio = await evaluate('zenDebug.audioState');
+    const expectedQueued = Math.floor((elapsed + 15) / 5);   // 4:6 pattern = 2 phases per 10 s
+    console.log(`screen off for ~${Math.round(elapsed)}s: remaining=${remaining.toFixed(1)}s queued=${queued} (expected ~${expectedQueued}) audio=${audio}`);
+    check('audio keeps running with screen off', audio === 'running', audio);
+    check('session clock kept time with screen off', Math.abs((SESSION_MIN * 60 - elapsed) - remaining) < 10, `expected ~${(SESSION_MIN * 60 - elapsed).toFixed(0)}s, got ${remaining.toFixed(0)}s`);
+    check('audio kept being queued with screen off', queued >= expectedQueued - 4, `queued ${queued}, expected ~${expectedQueued}`);
+    // Pause from the page; the service should stop.
+    await evaluate("document.getElementById('quick-pause-btn').click()");
+    await sleep(1500);
+  });
+  const svcPaused = serviceState();
+  console.log('service after Pause ->', JSON.stringify(svcPaused));
+  check('foreground service stops on pause', !svcPaused.foreground);
+  sh('adb shell input keyevent KEYCODE_WAKEUP');
 
   process.exit(failed ? 1 : 0);
 })().catch(e => { console.error('FAIL: smoke test crashed:', e); process.exit(1); });
