@@ -1,5 +1,8 @@
 apply plugin: 'com.android.application'
 
+// The build server numbers each build, so every new APK counts as an update
+def zenVersion = (System.getenv("ZEN_VERSION_CODE") ?: "1").toInteger()
+
 android {
     namespace = "com.zenpacer.app"
     compileSdk = rootProject.ext.compileSdkVersion
@@ -7,8 +10,8 @@ android {
         applicationId "com.zenpacer.app"
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
-        versionCode 1
-        versionName "1.0"
+        versionCode zenVersion
+        versionName "1.0." + zenVersion
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
         aaptOptions {
              // Files and dirs to omit from the packaged assets dir, modified to accommodate modern web apps.
@@ -16,7 +19,25 @@ android {
             ignoreAssetsPattern = '!.svn:!.git:!.ds_store:!*.scc:.*:!CVS:!thumbs.db:!picasa.ini:!*~'
         }
     }
+    // Permanent signing key: when the build server provides it, every build is signed with the same
+    // key, so a new APK installs over the old one without uninstalling. Without it, Android's
+    // temporary debug key is used (and each build has a different signature).
+    signingConfigs {
+        stable {
+            if (System.getenv("ZEN_KEYSTORE_FILE")) {
+                storeFile file(System.getenv("ZEN_KEYSTORE_FILE"))
+                storePassword System.getenv("ZEN_SIGNING_PASSPHRASE")
+                keyAlias "zenpacer"
+                keyPassword System.getenv("ZEN_SIGNING_PASSPHRASE")
+            }
+        }
+    }
     buildTypes {
+        debug {
+            if (System.getenv("ZEN_KEYSTORE_FILE")) {
+                signingConfig signingConfigs.stable
+            }
+        }
         release {
             minifyEnabled false
             proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'

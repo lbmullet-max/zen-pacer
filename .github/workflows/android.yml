@@ -32,9 +32,32 @@ jobs:
       - name: Copy web files into the Android project
         run: npm run sync
 
+      # The signing key is stored encrypted in the repo (signing/zenpacer.keystore.enc).
+      # Add the passphrase as a repository secret named ZEN_SIGNING_PASSPHRASE to use it.
+      - name: Use the permanent signing key (if the secret is set)
+        env:
+          SIGNING_PASSPHRASE: ${{ secrets.ZEN_SIGNING_PASSPHRASE }}
+        run: |
+          if [ -n "$SIGNING_PASSPHRASE" ]; then
+            openssl enc -d -aes-256-cbc -pbkdf2 -iter 200000 -pass env:SIGNING_PASSPHRASE \
+              -in signing/zenpacer.keystore.enc -out "$RUNNER_TEMP/zenpacer.keystore"
+            echo "ZEN_KEYSTORE_FILE=$RUNNER_TEMP/zenpacer.keystore" >> "$GITHUB_ENV"
+            echo "ZEN_SIGNING_PASSPHRASE=$SIGNING_PASSPHRASE" >> "$GITHUB_ENV"
+            echo "Signing with the permanent key."
+          else
+            echo "::warning::ZEN_SIGNING_PASSPHRASE secret is not set, so this APK uses a temporary key. Uninstall the old app before installing it."
+          fi
+
       - name: Build APK
         working-directory: android
+        env:
+          ZEN_VERSION_CODE: ${{ github.run_number }}
         run: ./gradlew assembleDebug --no-daemon
+
+      - name: Show which key signed the APK
+        run: |
+          APKSIGNER=$(ls "$ANDROID_HOME"/build-tools/*/apksigner | sort -V | tail -1)
+          "$APKSIGNER" verify --print-certs android/app/build/outputs/apk/debug/app-debug.apk | grep "Signer #1 certificate SHA-256"
 
       - name: Name the APK
         run: cp android/app/build/outputs/apk/debug/app-debug.apk zen-pacer.apk
@@ -53,7 +76,7 @@ jobs:
           gh release delete latest --cleanup-tag --yes || true
           gh release create latest zen-pacer.apk \
             --title "Zen Pacer (latest)" \
-            --notes "Latest build of the Zen Pacer Android app. Download zen-pacer.apk and open it on your phone to install." \
+            --notes "Latest build of the Zen Pacer Android app. Download zen-pacer.apk and open it on your phone to install. Newer builds install over older ones (no need to uninstall) once the signing secret is set up." \
             --target "$GITHUB_SHA"
 
   # Boots the APK on an emulator and checks the app really runs.

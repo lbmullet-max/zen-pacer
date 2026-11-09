@@ -148,6 +148,21 @@
             flex-wrap: wrap;
             width: 100%;
         }
+        .options { justify-content: space-between; }
+        .check {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            font-size: 0.85rem;
+            color: var(--muted);
+            white-space: nowrap;
+            cursor: pointer;
+        }
+        .check input {
+            width: 16px;
+            height: 16px;
+            accent-color: var(--accent);
+        }
         .muted {
             color: var(--muted);
             font-size: 0.85rem;
@@ -411,6 +426,10 @@
                     <input type="number" id="minutes-input" value="16" min="1" max="60">
                     <span class="muted">min</span>
                 </div>
+                <div class="row options">
+                    <label class="check"><input type="checkbox" id="keep-awake-toggle" checked> Keep screen on</label>
+                    <label class="check"><input type="checkbox" id="fade-toggle" checked> Fade out at end</label>
+                </div>
             </div>
 
             <div class="settings-section">
@@ -547,6 +566,7 @@ let pacerSwellGain  = null;
 let pacerVolGain    = null;
 let reverbNode      = null;   // shared generated-hall reverb (wet bus)
 let reverbSend      = null;
+let fadeGain        = null;   // slowly lowers the cues over the end of the session
 let endBus          = null;   // end-of-session chime (skips the breathing swell)
 const activeOscillators = new Set();   // everything queued, so pause/reset can silence it
 let wakeLock        = null;
@@ -567,6 +587,8 @@ const patternDesc     = document.getElementById('pattern-description');
 const soundSelect     = document.getElementById('sound-select');
 const themeSelect     = document.getElementById('theme-select');
 const minutesInput    = document.getElementById('minutes-input');
+const keepAwakeToggle = document.getElementById('keep-awake-toggle');
+const fadeToggle      = document.getElementById('fade-toggle');
 const pacerVolSlider  = document.getElementById('pacer-vol-slider');
 
 const startBtn        = document.getElementById('start-btn');
@@ -661,6 +683,12 @@ function applyTheme(theme, save) {
     if (save) { try { localStorage.setItem('zenPacerTheme', theme); } catch (e) {} }
 }
 themeSelect.addEventListener('change', () => applyTheme(themeSelect.value, true));
+
+// "Keep screen on" can be flipped at any time, including mid-session
+keepAwakeToggle.addEventListener('change', () => {
+    if (!sessionState.isRunning) return;
+    if (keepAwakeToggle.checked) requestWakeLock(); else releaseWakeLock();
+});
 applyTheme(document.documentElement.getAttribute('data-theme'), false);
 
 // Inside the Android app, a foreground service (with a small notification) keeps the app
@@ -668,12 +696,24 @@ applyTheme(document.documentElement.getAttribute('data-theme'), false);
 const NativeBackground = (window.Capacitor && window.Capacitor.isNativePlatform && window.Capacitor.isNativePlatform()
                           && window.Capacitor.Plugins && window.Capacitor.Plugins.BackgroundSession) || null;
 function startBackground() { if (NativeBackground) NativeBackground.start().catch(e => console.log('Background:', e)); }
+function pausedBackground() { if (NativeBackground) NativeBackground.paused().catch(() => {}); }
 function stopBackground()  { if (NativeBackground) NativeBackground.stop().catch(() => {}); }
+
+// The notification's Pause/Resume and Stop buttons (also shown on the lock screen) come back as events
+if (NativeBackground) {
+    window.Capacitor.addListener('BackgroundSession', 'toggle', () => {
+        if (!sessionState.hasStarted) return;
+        if (sessionState.isRunning) pauseSession(); else startSession();
+        updateQuickPauseBtn();
+    });
+    window.Capacitor.addListener('BackgroundSession', 'stop', () => resetSession());
+}
 
 const NativeKeepAwake = (window.Capacitor && window.Capacitor.isNativePlatform && window.Capacitor.isNativePlatform()
                          && window.Capacitor.Plugins && window.Capacitor.Plugins.KeepAwake) || null;
 
 async function requestWakeLock() {
+    if (!keepAwakeToggle.checked) return;       // "Keep screen on" is switched off
     if (NativeKeepAwake) {
         NativeKeepAwake.enable().catch(e => console.log('Keep awake:', e));
         return;
@@ -770,20 +810,23 @@ function makeVoice(freq, dest, when, stopAt, type = 'sine', detune = 4) {
 
 function initAudio() {
     if (!audioCtx) {
-        audioCtx       = new (window.AudioContext || window.webkitAudioContext)();
+        // 'playback' = large audio buffers: fewer dropouts/clicks (nothing here needs low latency)
+        audioCtx       = new (window.AudioContext || window.webkitAudioContext)({ latencyHint: 'playback' });
         pacerSwellGain = audioCtx.createGain();
         pacerVolGain   = audioCtx.createGain();
         pacerVolGain.gain.value = parseFloat(pacerVolSlider.value);
-        pacerSwellGain.connect(pacerVolGain);
+        fadeGain = audioCtx.createGain();
+        pacerSwellGain.connect(fadeGain);
+        fadeGain.connect(pacerVolGain);
         pacerVolGain.connect(audioCtx.destination);
 
         // Reverb wet bus: pacer voices send into a generated hall,
         // blended back in under the pacer volume control.
         reverbNode = audioCtx.createConvolver();
-        reverbNode.buffer = buildImpulse(3.2, 2.4);
+        reverbNode.buffer = buildImpulse(2.2, 2.4);
         reverbSend = audioCtx.createGain();
         reverbSend.gain.value = 0.5;
-        pacerSwellGain.connect(reverbNode);
+        fadeGain.connect(reverbNode);
         reverbNode.connect(reverbSend);
         reverbSend.connect(pacerVolGain);
 
@@ -821,8 +864,8 @@ function attachVibrato(oscs, when, stopAt, cents = 2.5) {
     trackOscillator(lfo);
 }
 
-/* One breathing cue: a soft chord that blooms note by note. `when` is on the audio clock. */
-function playChord(phaseType, when, duration, dest) {
+/* A one-off chord built from short-lived nodes: used for the closing breath only. */
+function playChordOnce(phaseType, when, duration, dest) {
     if (soundSelect.value === 'mute' || !audioCtx) return;
 
     const gap = 0.15;
@@ -841,7 +884,7 @@ function playChord(phaseType, when, duration, dest) {
         const t0 = when + i * 0.22;
         if (t0 >= end - 0.3) return;
         const g = audioCtx.createGain();
-        const peak = (0.55 / freqs.length) * (1 - i * 0.08);
+        const peak = (CUE_LEVEL / freqs.length) * (1 - i * 0.08);
         applySwell(g.gain, t0, end, peak, 1.2);
         g.connect(filter);
         const oscs = makeVoice(f, g, t0, end, 'sine', 3);
@@ -864,6 +907,83 @@ function playCompletionTone(when) {
         osc.connect(gain);
         osc.start(now + i * 0.08);
         osc.stop(now + 4);
+    });
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   THE BREATHING VOICES
+   Four notes that are built once per session and then only retuned and re-shaped
+   (via scheduled changes) for each cue. Creating and discarding a fresh set of audio
+   objects for every cue made the audio engine do constant extra work, which showed up
+   as clicks on a phone.
+═══════════════════════════════════════════════════════════════ */
+// Level of each note. Four notes (two oscillators each) can line up and add together, so this
+// leaves headroom: at full volume the sum must stay clear of 1.0 or the sound clips (clicks).
+const CUE_LEVEL = 0.41;
+
+const NOTE_FREQS = {
+    inhale: [174.61, 261.63, 349.23, 440.00],
+    exhale: [130.81, 196.00, 261.63, 329.63],
+    hold:   [196.00, 293.66, 392.00, 493.88],
+};
+let voices      = null;   // [{ gain, oscs: [two detuned sines], lfo, depth }] x 4
+let voiceFilter = null;
+
+function buildVoices() {
+    if (voices || !audioCtx) return;
+    voiceFilter = audioCtx.createBiquadFilter();
+    voiceFilter.type = 'lowpass'; voiceFilter.frequency.value = 1800; voiceFilter.Q.value = 0.3;
+    voiceFilter.connect(pacerSwellGain);
+    const now = audioCtx.currentTime;
+    voices = [0, 1, 2, 3].map(() => {
+        const gain = audioCtx.createGain();
+        gain.gain.value = 0;
+        gain.connect(voiceFilter);
+        // very slow pitch shimmer shared by the voice's two oscillators
+        const lfo   = audioCtx.createOscillator();
+        lfo.type = 'sine'; lfo.frequency.value = 0.13 + Math.random() * 0.1;
+        const depth = audioCtx.createGain();
+        depth.gain.value = 1.8;
+        lfo.connect(depth);
+        const oscs = [-3, 3].map(cents => {
+            const o = audioCtx.createOscillator();
+            o.type = 'sine'; o.frequency.value = 220; o.detune.value = cents;
+            depth.connect(o.detune);
+            o.connect(gain);
+            o.start(now);
+            return o;
+        });
+        lfo.start(now);
+        return { gain, oscs, lfo, depth };
+    });
+}
+
+function teardownVoices(fadeSec) {
+    if (!voices) return;
+    const t = audioCtx.currentTime;
+    const filter = voiceFilter;
+    voices.forEach(v => {
+        v.gain.gain.cancelScheduledValues(t);
+        v.gain.gain.setTargetAtTime(0, t, 0.05);
+        [...v.oscs, v.lfo].forEach(o => { try { o.stop(t + fadeSec); } catch (e) {} });
+    });
+    setTimeout(() => { try { filter.disconnect(); } catch (e) {} }, fadeSec * 1000 + 300);
+    voices = null; voiceFilter = null;
+}
+
+/* One breathing cue: a soft chord that blooms note by note. `when` is on the audio clock. */
+function playPhaseVoices(phaseType, when, duration) {
+    if (!voices) return;
+    const gap   = 0.15;
+    const end   = when + duration - gap;
+    const freqs = NOTE_FREQS[phaseType] || NOTE_FREQS.hold;
+    voices.forEach((v, i) => {
+        const t0 = when + i * 0.22;
+        if (t0 >= end - 0.3) return;                       // phase too short for this note
+        // Retune while the voice is silent (the previous cue ended at least `gap` seconds ago)
+        v.oscs.forEach(o => o.frequency.setValueAtTime(freqs[i], when - 0.05));
+        const peak = (CUE_LEVEL / freqs.length) * (1 - i * 0.08);
+        applySwell(v.gain.gain, t0, end, peak, 1.2);
     });
 }
 
@@ -900,12 +1020,12 @@ function queuePhase(phase, when) {
     const swell = pacerSwellGain.gain;
     swell.setValueAtTime(from, when);
     swell.linearRampToValueAtTime(to, when + phase.duration);
-    playChord(phase.type, when, phase.duration, pacerSwellGain);
+    playPhaseVoices(phase.type, when, phase.duration);
 }
 
 function queueEnd(when) {
     queue.endQueued = true;
-    playChord('inhale', when, 3, endBus);                       // soft closing breath
+    playChordOnce('inhale', when, 3, endBus);                       // soft closing breath
     playCompletionTone(when + COMPLETION_HOLD_SEC);             // then the chime
 }
 
@@ -925,6 +1045,30 @@ function scheduleAudio() {
     if (!queue.endQueued && queue.endTime < horizon) queueEnd(queue.endTime);
 }
 
+// Fade the cues down over the last minute (half of a very short session) so the session ends softly.
+// The closing breath and chime come after the fade.
+function applyFade() {
+    if (!fadeGain || !audioCtx) return;
+    const now = audioCtx.currentTime;
+    const g = fadeGain.gain;
+    g.cancelScheduledValues(now);
+    const floor = 0.15;
+    const fadeSec = Math.min(60, sessionState.startingMinutes * 30);
+    const fadeStart = queue.endTime - fadeSec;
+    if (!fadeToggle.checked || !sessionState.isRunning || now >= queue.endTime) {
+        g.setValueAtTime(1, now);
+    } else if (now >= fadeStart) {
+        // resumed partway through the fade
+        g.setValueAtTime(1 - (1 - floor) * ((now - fadeStart) / fadeSec), now);
+        g.linearRampToValueAtTime(floor, queue.endTime);
+    } else {
+        g.setValueAtTime(1, now);
+        g.setValueAtTime(1, fadeStart);
+        g.linearRampToValueAtTime(floor, queue.endTime);
+    }
+}
+fadeToggle.addEventListener('change', () => { if (sessionState.isRunning) applyFade(); });
+
 // Pause / reset: fade out and drop everything that was queued.
 function cancelQueuedAudio() {
     if (!audioCtx) return;
@@ -933,12 +1077,14 @@ function cancelQueuedAudio() {
     pacerSwellGain.gain.setTargetAtTime(0, t, 0.08);
     activeOscillators.forEach(o => { try { o.stop(t + 0.5); } catch (e) {} });
     activeOscillators.clear();
+    teardownVoices(0.5);
 }
 
 // Test hook: lets the emulator test see that queueing carries on with the screen off
 window.zenDebug = {
     get phasesQueued() { return queue.phasesQueued; },
     get audioState() { return audioCtx ? audioCtx.state : 'none'; },
+    get fade() { return fadeGain ? fadeGain.gain.value : null; },
     get remaining() { syncClock(); return sessionState.totalTimeRemaining; },
     setAheadSeconds(sec) { scheduleAheadSec = sec; },
 };
@@ -1148,6 +1294,8 @@ function startSession() {
     queue.endTime      = sessionState.runStartAudio + sessionState.totalTimeRemaining;
     queue.endQueued    = false;
     queue.phasesQueued = 0;
+    buildVoices();
+    applyFade();
     scheduleAudio();
 
     updateMediaSession('playing');
@@ -1163,7 +1311,7 @@ function pauseSession() {
     stopSessionTimers();
     cancelQueuedAudio();
     releaseWakeLock();
-    stopBackground();
+    pausedBackground();
     setUiState('paused');
     instructionEl.textContent  = 'Paused';
     phaseCountdown.textContent = '';
@@ -1257,8 +1405,55 @@ window.addEventListener('pageshow', (e) => {
 });
 
 /* ═══════════════════════════════════════════════════════════════
+   SAVED SETTINGS — pattern, length, sound, volume and the two switches are remembered
+═══════════════════════════════════════════════════════════════ */
+const SETTINGS_KEY = 'zenPacerSettings';
+
+function saveSettings() {
+    try {
+        localStorage.setItem(SETTINGS_KEY, JSON.stringify({
+            pattern:      patternSelect.value,
+            minutes:      parseInt(minutesInput.value) || 16,
+            sound:        soundSelect.value,
+            volume:       parseFloat(pacerVolSlider.value),
+            keepScreenOn: keepAwakeToggle.checked,
+            fadeOut:      fadeToggle.checked,
+        }));
+    } catch (e) { /* storage blocked: settings just won't be remembered */ }
+}
+
+function loadSettings() {
+    let saved = null;
+    try { saved = JSON.parse(localStorage.getItem(SETTINGS_KEY)); } catch (e) {}
+    if (!saved || typeof saved !== 'object') return;
+
+    if (PATTERNS[saved.pattern]) {
+        patternSelect.value = saved.pattern;
+        sessionState.currentPattern    = PATTERNS[saved.pattern].phases;
+        sessionState.currentPatternKey = saved.pattern;
+        updatePatternDescription(saved.pattern);
+    }
+    const minutes = parseInt(saved.minutes);
+    if (minutes >= 1 && minutes <= 60) {
+        minutesInput.value = minutes;
+        sessionState.startingMinutes    = minutes;
+        sessionState.totalTimeRemaining = minutes * 60;
+    }
+    if (saved.sound === 'chords' || saved.sound === 'mute') soundSelect.value = saved.sound;
+    const volume = parseFloat(saved.volume);
+    if (volume >= 0 && volume <= 1) pacerVolSlider.value = volume;
+    if (typeof saved.keepScreenOn === 'boolean') keepAwakeToggle.checked = saved.keepScreenOn;
+    if (typeof saved.fadeOut === 'boolean')      fadeToggle.checked      = saved.fadeOut;
+}
+
+// 'change' fires after the other handlers above have tidied the value (e.g. clamped the minutes)
+[patternSelect, minutesInput, soundSelect, pacerVolSlider, keepAwakeToggle, fadeToggle]
+    .forEach(el => el.addEventListener('change', saveSettings));
+
+/* ═══════════════════════════════════════════════════════════════
    INIT
 ═══════════════════════════════════════════════════════════════ */
+loadSettings();
 timerDisplay.textContent = formatTime(sessionState.totalTimeRemaining);
 </script>
 

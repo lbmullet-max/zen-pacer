@@ -1,0 +1,62 @@
+name: Signing check (temporary)
+
+on:
+  workflow_dispatch:
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 21
+      - uses: gradle/actions/setup-gradle@v4
+      - run: npm ci && npm run sync
+
+      - name: Make a throwaway key and encrypt it the same way as the real one
+        run: |
+          PASS=$(openssl rand -base64 48 | tr -dc 'A-Za-z0-9' | head -c 40)
+          echo "::add-mask::$PASS"
+          keytool -genkeypair -keystore "$RUNNER_TEMP/throwaway.keystore" -alias zenpacer -keyalg RSA -keysize 2048 \
+            -validity 30 -storepass "$PASS" -keypass "$PASS" -dname "CN=Throwaway" >/dev/null 2>&1
+          openssl enc -aes-256-cbc -pbkdf2 -iter 200000 -salt -pass "pass:$PASS" \
+            -in "$RUNNER_TEMP/throwaway.keystore" -out "$RUNNER_TEMP/throwaway.keystore.enc"
+          echo "TEST_PASS=$PASS" >> "$GITHUB_ENV"
+
+      - name: Build with no key configured (the fallback)
+        working-directory: android
+        env:
+          ZEN_VERSION_CODE: "101"
+        run: |
+          ./gradlew assembleDebug --no-daemon
+          cp app/build/outputs/apk/debug/app-debug.apk "$RUNNER_TEMP/fallback.apk"
+
+      - name: Decrypt the key exactly like android.yml does, then build twice
+        env:
+          SIGNING_PASSPHRASE: ${{ env.TEST_PASS }}
+        run: |
+          openssl enc -d -aes-256-cbc -pbkdf2 -iter 200000 -pass env:SIGNING_PASSPHRASE \
+            -in "$RUNNER_TEMP/throwaway.keystore.enc" -out "$RUNNER_TEMP/zenpacer.keystore"
+          export ZEN_KEYSTORE_FILE="$RUNNER_TEMP/zenpacer.keystore"
+          export ZEN_SIGNING_PASSPHRASE="$SIGNING_PASSPHRASE"
+          cd android
+          ZEN_VERSION_CODE=102 ./gradlew assembleDebug --no-daemon
+          cp app/build/outputs/apk/debug/app-debug.apk "$RUNNER_TEMP/stable-1.apk"
+          ZEN_VERSION_CODE=103 ./gradlew clean assembleDebug --no-daemon
+          cp app/build/outputs/apk/debug/app-debug.apk "$RUNNER_TEMP/stable-2.apk"
+
+      - name: Compare
+        run: |
+          APKSIGNER=$(ls "$ANDROID_HOME"/build-tools/*/apksigner | sort -V | tail -1)
+          AAPT2=$(ls "$ANDROID_HOME"/build-tools/*/aapt2 | sort -V | tail -1)
+          for f in fallback stable-1 stable-2; do
+            echo "== $f =="
+            "$APKSIGNER" verify --print-certs "$RUNNER_TEMP/$f.apk" | grep "Signer #1 certificate SHA-256"
+            "$AAPT2" dump badging "$RUNNER_TEMP/$f.apk" | grep -o "versionCode='[0-9]*' versionName='[^']*'"
+          done
