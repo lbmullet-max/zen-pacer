@@ -27,15 +27,17 @@ repo's **Actions** tab instead (under "Artifacts").
 ### Installing updates without uninstalling
 
 Android only installs a new APK over an old one if both were signed with the same key.
-The key lives in the repo **encrypted** (`signing/zenpacer.keystore.enc`). To switch it on,
-add the passphrase once as a repository secret:
+One-time setup (nothing is ever copied out of GitHub):
 
-GitHub repo → **Settings → Secrets and variables → Actions → New repository secret**,
-name `ZEN_SIGNING_PASSPHRASE`, value = the passphrase.
+1. Choose a passphrase (12+ characters, a long phrase is best) and keep it in your password manager.
+2. GitHub repo → **Settings → Secrets and variables → Actions → New repository secret**:
+   name `ZEN_SIGNING_PASSPHRASE`, value = your passphrase.
+3. **Actions** tab → **Create signing key** → **Run workflow**. It makes the key, encrypts it with
+   your passphrase and saves the encrypted file to `signing/` in the repo.
 
-From the next build on, every APK is signed with the same key (the build log prints its
-fingerprint) and installs over the previous version. Until the secret exists, builds use a
-temporary key, so each new build must be installed after uninstalling the old one.
+From the next build on, every APK is signed with that key (the build log prints its fingerprint)
+and installs over the previous version. Until then builds use a temporary key, so each new build
+must be installed after uninstalling the old one.
 
 Keep the passphrase somewhere safe: it protects the key that proves updates are yours.
 

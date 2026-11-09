@@ -39,8 +39,13 @@ jobs:
           SIGNING_PASSPHRASE: ${{ secrets.ZEN_SIGNING_PASSPHRASE }}
         run: |
           if [ -n "$SIGNING_PASSPHRASE" ]; then
+            if [ ! -f signing/zenpacer.keystore.enc ]; then
+              echo "::error::The ZEN_SIGNING_PASSPHRASE secret is set, but there is no key file yet. Run the 'Create signing key' workflow first."
+              exit 1
+            fi
             openssl enc -d -aes-256-cbc -pbkdf2 -iter 200000 -pass env:SIGNING_PASSPHRASE \
-              -in signing/zenpacer.keystore.enc -out "$RUNNER_TEMP/zenpacer.keystore"
+              -in signing/zenpacer.keystore.enc -out "$RUNNER_TEMP/zenpacer.keystore" \
+              || { echo "::error::The ZEN_SIGNING_PASSPHRASE secret doesn't open signing/zenpacer.keystore.enc. Check the secret."; exit 1; }
             echo "ZEN_KEYSTORE_FILE=$RUNNER_TEMP/zenpacer.keystore" >> "$GITHUB_ENV"
             echo "ZEN_SIGNING_PASSPHRASE=$SIGNING_PASSPHRASE" >> "$GITHUB_ENV"
             echo "Signing with the permanent key."
