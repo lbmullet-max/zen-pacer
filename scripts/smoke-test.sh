@@ -7,7 +7,7 @@ node scripts/smoke-test.js
 RESULT=$?
 
 echo "---- app log ----"
-adb logcat -d | grep -E "Capacitor|AndroidRuntime|FATAL" | tail -80
+adb logcat -d | grep -E "Capacitor|ZenPacer|FATAL" | grep -v "Handling local request\|Console: File" | tail -400
 
 if adb logcat -d | grep -E "js.error|FATAL EXCEPTION|Capacitor/Plugin.*(rror|ailed)"; then
   echo "FAIL: the app logged a JavaScript or native error"

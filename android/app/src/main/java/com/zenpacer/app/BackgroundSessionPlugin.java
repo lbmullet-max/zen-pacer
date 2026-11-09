@@ -10,6 +10,7 @@ import androidx.core.app.ActivityCompat;
 import androidx.core.content.ContextCompat;
 
 import com.getcapacitor.JSObject;
+import com.getcapacitor.Logger;
 import com.getcapacitor.Plugin;
 import com.getcapacitor.PluginCall;
 import com.getcapacitor.PluginMethod;
@@ -28,6 +29,7 @@ public class BackgroundSessionPlugin extends Plugin {
     @Override
     public void load() {
         instance = this;
+        Logger.info("ZenPacer", "BackgroundSession plugin loaded, instance #" + System.identityHashCode(this));
     }
 
     @Override
@@ -39,6 +41,8 @@ public class BackgroundSessionPlugin extends Plugin {
     static boolean emit(String event) {
         BackgroundSessionPlugin plugin = instance;
         if (plugin == null) return false;
+        Logger.info("ZenPacer", "emit '" + event + "' to instance #" + System.identityHashCode(plugin)
+            + ", listeners registered: " + plugin.hasListeners(event));
         plugin.notifyListeners(event, new JSObject());
         return true;
     }

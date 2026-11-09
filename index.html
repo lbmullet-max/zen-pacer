@@ -703,6 +703,7 @@ function stopBackground()  { if (NativeBackground) NativeBackground.stop().catch
 // Capacitor clears all event listeners whenever a page starts loading, so these must be registered
 // once loading has finished, not while the page is still starting up.
 function listenForNotificationButtons() {
+    console.log('ZenPacer: registering notification button listeners');
     window.Capacitor.addListener('BackgroundSession', 'toggle', () => {
         if (!sessionState.hasStarted) return;
         if (sessionState.isRunning) pauseSession(); else startSession();
