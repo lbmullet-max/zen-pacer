@@ -55,23 +55,25 @@
         /* ─── Colour palettes (the colour button in Settings cycles these) ───
            Each sets the accent (circle, ring, buttons) and three soft background glows. */
         :root {
+            --accent-2: #4a4a4a; --accent-3: #2c2c2c;
             --blob-a: #b8b8b8; --blob-b: #d4d4d4; --blob-c: #9a9a9a;
             --blob-opacity: 0.75;
         }
         :root[data-theme="dark"] {
+            --accent-2: #9c9c9c; --accent-3: #ffffff;
             --blob-a: #3a3a3a; --blob-b: #2a2a2a; --blob-c: #4a4a4a;
             --blob-opacity: 0.9;
         }
-        :root[data-color="sage"]  { --accent: #3b7a5c; --blob-a: #8fd1ad; --blob-b: #c8e6a0; --blob-c: #7fc4c0; }
-        :root[data-color="ocean"] { --accent: #2f6fb3; --blob-a: #8ab8f0; --blob-b: #8de0e0; --blob-c: #a7a4f2; }
-        :root[data-color="dusk"]  { --accent: #6b52b5; --blob-a: #b9a3f5; --blob-b: #f0a8d8; --blob-c: #8fb0f5; }
-        :root[data-color="ember"] { --accent: #c2612a; --blob-a: #f7b27a; --blob-b: #f5d27a; --blob-c: #f29a9a; }
-        :root[data-color="rose"]  { --accent: #b8456e; --blob-a: #f2a3c0; --blob-b: #f7c1a8; --blob-c: #c9a8f0; }
-        :root[data-theme="dark"][data-color="sage"]  { --accent: #7cc39a; --blob-a: #1f6b4a; --blob-b: #4a6b1f; --blob-c: #1f5f66; }
-        :root[data-theme="dark"][data-color="ocean"] { --accent: #7fb2ec; --blob-a: #1d4f8f; --blob-b: #156b73; --blob-c: #3d3a96; }
-        :root[data-theme="dark"][data-color="dusk"]  { --accent: #b3a0f0; --blob-a: #4b3394; --blob-b: #7a2f66; --blob-c: #2a4a8f; }
-        :root[data-theme="dark"][data-color="ember"] { --accent: #f0a36b; --blob-a: #8f3e14; --blob-b: #7a5a12; --blob-c: #7a1f2a; }
-        :root[data-theme="dark"][data-color="rose"]  { --accent: #f08fb2; --blob-a: #8a2550; --blob-b: #7a3e24; --blob-c: #4f2f8a; }
+        :root[data-color="sage"]  { --accent-2: #2f8f8a; --accent-3: #7aa84a; --accent: #3b7a5c; --blob-a: #8fd1ad; --blob-b: #c8e6a0; --blob-c: #7fc4c0; }
+        :root[data-color="ocean"] { --accent-2: #2a9db5; --accent-3: #5b5fc7; --accent: #2f6fb3; --blob-a: #8ab8f0; --blob-b: #8de0e0; --blob-c: #a7a4f2; }
+        :root[data-color="dusk"]  { --accent-2: #b04f9e; --accent-3: #4a6fd0; --accent: #6b52b5; --blob-a: #b9a3f5; --blob-b: #f0a8d8; --blob-c: #8fb0f5; }
+        :root[data-color="ember"] { --accent-2: #d99a2b; --accent-3: #c43d4b; --accent: #c2612a; --blob-a: #f7b27a; --blob-b: #f5d27a; --blob-c: #f29a9a; }
+        :root[data-color="rose"]  { --accent-2: #d4734f; --accent-3: #8a52c2; --accent: #b8456e; --blob-a: #f2a3c0; --blob-b: #f7c1a8; --blob-c: #c9a8f0; }
+        :root[data-theme="dark"][data-color="sage"]  { --accent-2: #6fd0c8; --accent-3: #b6d97a; --accent: #7cc39a; --blob-a: #1f6b4a; --blob-b: #4a6b1f; --blob-c: #1f5f66; }
+        :root[data-theme="dark"][data-color="ocean"] { --accent-2: #7fe0e0; --accent-3: #a9a4f5; --accent: #7fb2ec; --blob-a: #1d4f8f; --blob-b: #156b73; --blob-c: #3d3a96; }
+        :root[data-theme="dark"][data-color="dusk"]  { --accent-2: #f0a0d8; --accent-3: #8fb5f5; --accent: #b3a0f0; --blob-a: #4b3394; --blob-b: #7a2f66; --blob-c: #2a4a8f; }
+        :root[data-theme="dark"][data-color="ember"] { --accent-2: #f5d07a; --accent-3: #f28f8f; --accent: #f0a36b; --blob-a: #8f3e14; --blob-b: #7a5a12; --blob-c: #7a1f2a; }
+        :root[data-theme="dark"][data-color="rose"]  { --accent-2: #f7b49a; --accent-3: #c7a3f5; --accent: #f08fb2; --blob-a: #8a2550; --blob-b: #7a3e24; --blob-c: #4f2f8a; }
 
         /* ─── Slowly drifting colour background ─────────────────────── */
         #bg {
@@ -362,18 +364,24 @@
             width: 100%; height: 100%;
             transform: rotate(-90deg);
             pointer-events: none;
+            overflow: visible;
         }
         #arc-track {
             fill: none;
-            stroke: var(--border);
+            stroke: var(--accent);
+            stroke-opacity: 0.16;
             stroke-width: 4;
         }
         #arc-progress {
             fill: none;
-            stroke: var(--accent);
+            stroke: url(#arc-gradient);
             stroke-width: 4;
             stroke-linecap: round;
+            filter: url(#arc-glow);
         }
+        #arc-gradient .s1 { stop-color: var(--accent); }
+        #arc-gradient .s2 { stop-color: var(--accent-2); }
+        #arc-gradient .s3 { stop-color: var(--accent-3); }
         .circle {
             width: 108px;
             height: 108px;
@@ -381,6 +389,33 @@
             background: var(--accent);
             will-change: transform;
             transform: scale(var(--circle-scale));
+            position: relative;
+            overflow: hidden;
+            isolation: isolate;
+            /* Soft halo in the palette's colours */
+            box-shadow: 0 0 22px 2px color-mix(in srgb, var(--accent) 55%, transparent),
+                        0 0 48px 6px color-mix(in srgb, var(--accent-2) 30%, transparent);
+        }
+        /* Slowly swirling colours inside the circle */
+        .circle::before {
+            content: '';
+            position: absolute;
+            inset: -30%;
+            background: conic-gradient(from 0deg, var(--accent), var(--accent-2), var(--accent-3), var(--accent));
+            filter: blur(14px);
+            animation: swirl 14s linear infinite;
+        }
+        /* A gentle highlight so it reads as a soft orb */
+        .circle::after {
+            content: '';
+            position: absolute;
+            inset: 0;
+            border-radius: 50%;
+            background: radial-gradient(circle at 32% 28%, rgba(255, 255, 255, 0.35), transparent 55%);
+        }
+        @keyframes swirl { to { transform: rotate(360deg); } }
+        @media (prefers-reduced-motion: reduce) {
+            .circle::before { animation: none; }
         }
 
         /* ─── Session complete screen ────────────────────────────────── */
@@ -550,6 +585,17 @@
     <!-- Breathing circle -->
     <div class="pacer-container">
         <svg id="arc-svg" viewBox="0 0 260 260" xmlns="http://www.w3.org/2000/svg">
+            <defs>
+                <linearGradient id="arc-gradient" x1="0" y1="0" x2="1" y2="1">
+                    <stop offset="0"   class="s1"/>
+                    <stop offset="0.5" class="s2"/>
+                    <stop offset="1"   class="s3"/>
+                </linearGradient>
+                <filter id="arc-glow" x="-20%" y="-20%" width="140%" height="140%">
+                    <feGaussianBlur in="SourceGraphic" stdDeviation="3.5" result="blur"/>
+                    <feMerge><feMergeNode in="blur"/><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
+                </filter>
+            </defs>
             <circle id="arc-track"    cx="130" cy="130" r="122"/>
             <circle id="arc-progress" cx="130" cy="130" r="122"/>
         </svg>

@@ -1,4 +1,4 @@
-const CACHE_NAME = 'breath-beautiful-v7';
+const CACHE_NAME = 'breath-beautiful-v8';
 const ASSETS = ['/', '/index.html', '/icon.png', '/manifest.json'];
 
 self.addEventListener('install', event => {

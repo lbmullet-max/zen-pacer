@@ -1,6 +1,6 @@
 # Zen Pacer
 
-A simple breathing pacer. It runs as a website and as an Android app (APK). Light and dark themes follow the phone's setting, and a colour button cycles through six palettes (Mono, Sage, Ocean, Dusk, Ember, Rose), each with a softly drifting colour background that brightens as you breathe in.
+A simple breathing pacer. It runs as a website and as an Android app (APK). Light and dark themes follow the phone's setting, and a colour button cycles through six palettes (Mono, Sage, Ocean, Dusk, Ember, Rose), each with a softly drifting colour background that brightens as you breathe in. The breathing circle is a glowing orb of swirling colour and the progress ring glows in the same palette.
 
 ## Files
 
